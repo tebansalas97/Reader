@@ -1,0 +1,15 @@
+pub mod assets;
+pub mod dir;
+pub mod fs;
+pub mod prefs;
+pub mod recent;
+pub mod shell;
+pub mod store;
+pub mod watcher;
+
+pub struct StartupPaths(pub std::sync::Mutex<Vec<String>>);
+
+#[tauri::command]
+pub fn startup_paths(state: tauri::State<'_, StartupPaths>) -> Vec<String> {
+    std::mem::take(&mut *state.0.lock().unwrap())
+}
