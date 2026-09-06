@@ -9,3 +9,5 @@ Thumbs.db
 tests/fixtures/perf-*.md
 tests/fixtures/plain.md
 tests/fixtures/empty.md
+bash.exe.stackdump
+*.stackdump
