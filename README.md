@@ -45,10 +45,13 @@ firma. La Fase 3, edición del contenido de un PDF.
   el botón derecho y diccionario personal. El diccionario se descarga solo
   cuando activas el corrector.
 - Modo foco, que atenúa todo lo que no es el bloque que escribes, y modo
-  máquina de escribir, que mantiene la línea activa centrada.
+  máquina de escribir, que mantiene la línea activa centrada. Los dos se activan
+  desde la barra de herramientas, igual que el corrector.
 - Tablas: `Tab` salta a la celda siguiente y las columnas se alinean solas al
   guardar.
-- Enlaces entre documentos con `[[nombre]]` o `[[nombre|texto visible]]`.
+- Enlaces entre documentos con `[[nombre]]` o `[[nombre|texto visible]]`. Al pasar
+  el ratón por cualquier enlace, un aviso dice a dónde lleva: la ruta completa del
+  documento, la sección del propio archivo o la dirección web.
 - Historial local: cada guardado deja una copia, hasta cuarenta por documento,
   que puedes ver y restaurar desde la barra lateral.
 

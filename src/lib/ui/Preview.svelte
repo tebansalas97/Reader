@@ -13,7 +13,7 @@
     markSelection,
   } from '$lib/preview/decorations';
   import { enhance } from '$lib/preview/lazy';
-  import { handlePreviewClick, rewriteAssets } from '$lib/preview/links';
+  import { annotateLinks, handlePreviewClick, rewriteAssets } from '$lib/preview/links';
   import { patchPreview } from '$lib/preview/patch';
   import { renderMarkdown } from '$lib/preview/render';
   import {
@@ -60,9 +60,15 @@
   let timer: ReturnType<typeof setTimeout> | null = null;
   const gesture = createGestureTracker();
 
-  function decorate(node: HTMLElement): void {
+  function decorate(node: HTMLElement, path: string | null): void {
     decorateCodeBlocks(node, t('preview.copy'));
     decorateDiagrams(node, t('preview.expand'));
+    annotateLinks(node, path, {
+      external: t('link.external'),
+      document: t('link.document'),
+      section: t('link.section'),
+      unknownSection: t('link.unknownSection'),
+    });
   }
 
   function paintHighlight(node: HTMLElement): void {
@@ -81,12 +87,12 @@
     if (!node) return;
     patchPreview(node, renderMarkdown(text));
     rewriteAssets(node, path);
-    decorate(node);
+    decorate(node, path);
     paintHighlight(node);
     anchors = buildLineMap(node);
     void enhance(node, text, theme).then(() => {
       if (!content) return;
-      decorate(content);
+      decorate(content, path);
       paintHighlight(content);
       anchors = buildLineMap(content);
     });

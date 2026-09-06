@@ -61,7 +61,10 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 12t. Pulsa el boton derecho sobre una palabra subrayada. Salen sugerencias y la
      opcion de anadirla al diccionario.
 12u. Cambia el idioma del corrector a ingles. El subrayado cambia de parrafo.
-12v. Activa el modo foco. Todo lo que no es el bloque activo se atenua.
+12v. Activa el modo foco desde la barra de herramientas. Todo lo que no es el
+     bloque activo se atenua.
+12v2. Pasa el raton por un enlace de la vista previa. El aviso dice a donde va:
+      ruta completa, seccion del documento o direccion web.
 12w. Activa el modo maquina de escribir. La linea activa se queda centrada.
 12x. Pon el cursor en una tabla y pulsa Tab. Salta a la celda siguiente.
 12y. Guarda un documento con una tabla desalineada. Las columnas se alinean.

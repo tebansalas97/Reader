@@ -311,6 +311,47 @@
         <path d="M1 15h14" />
       </svg>
     </button>
+    <button
+      class="tool toggle"
+      class:on={prefs.current.focusMode}
+      title={t('settings.focusMode')}
+      aria-label={t('command.focusMode')}
+      aria-pressed={prefs.current.focusMode}
+      onclick={() => prefs.update({ focusMode: !prefs.current.focusMode })}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="2.2" />
+        <circle cx="8" cy="8" r="5.6" />
+        <path d="M8 1v1.4M8 13.6V15M1 8h1.4M13.6 8H15" />
+      </svg>
+    </button>
+    <button
+      class="tool toggle"
+      class:on={prefs.current.typewriter}
+      title={t('settings.typewriter')}
+      aria-label={t('command.typewriter')}
+      aria-pressed={prefs.current.typewriter}
+      onclick={() => prefs.update({ typewriter: !prefs.current.typewriter })}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M4 2h8v3H4z" />
+        <rect x="1.5" y="5" width="13" height="6" rx="1.5" />
+        <path d="M4 13h8M2 8h12" />
+      </svg>
+    </button>
+    <button
+      class="tool toggle"
+      class:on={prefs.current.spellCheck}
+      title={t('settings.spellCheck')}
+      aria-label={t('command.spellCheck')}
+      aria-pressed={prefs.current.spellCheck}
+      onclick={() => prefs.update({ spellCheck: !prefs.current.spellCheck })}
+    >
+      <svg viewBox="0 0 16 16" aria-hidden="true">
+        <path d="M2 11L5 3l3 8M3 8.6h4" />
+        <path d="M9.5 10.5l1.8 1.8L15 8" />
+      </svg>
+    </button>
     <label class="sync" title={t('toolbar.syncHint')}>
       <input
         type="checkbox"

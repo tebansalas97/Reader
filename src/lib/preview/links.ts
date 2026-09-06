@@ -42,3 +42,52 @@ export function handlePreviewClick(
     openDoc(resolveRelative(docPath, href));
   }
 }
+
+export interface LinkLabels {
+  external: string;
+  document: string;
+  section: string;
+  unknownSection: string;
+}
+
+function headingTextFor(root: HTMLElement, id: string): string | null {
+  const target = Array.from(root.querySelectorAll('[id]')).find((el) => el.id === id);
+  return target ? (target.textContent ?? '').trim() : null;
+}
+
+export function describeLink(
+  href: string,
+  docPath: string | null,
+  labels: LinkLabels,
+  headingText: (id: string) => string | null,
+): string | null {
+  if (href.length === 0) return null;
+
+  if (href.startsWith('#')) {
+    let id = href.slice(1);
+    try {
+      id = decodeURIComponent(id);
+    } catch {
+      id = href.slice(1);
+    }
+    const heading = headingText(id);
+    return heading ? `${labels.section}: ${heading}` : labels.unknownSection;
+  }
+
+  if (isExternalUrl(href)) return `${labels.external}: ${href}`;
+
+  const target = docPath === null ? href : resolveRelative(docPath, href);
+  return `${labels.document}: ${target}`;
+}
+
+export function annotateLinks(root: HTMLElement, docPath: string | null, labels: LinkLabels): void {
+  for (const anchor of Array.from(root.querySelectorAll('a'))) {
+    const href = anchor.getAttribute('href') ?? '';
+    const title = describeLink(href, docPath, labels, (id) => headingTextFor(root, id));
+    if (title === null) {
+      anchor.removeAttribute('title');
+      continue;
+    }
+    anchor.setAttribute('title', title);
+  }
+}
