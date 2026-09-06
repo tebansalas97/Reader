@@ -51,16 +51,26 @@
     decorateDiagrams(node, t('preview.expand'));
   }
 
+  function paintHighlight(node: HTMLElement): void {
+    if (!prefs.current.highlightActiveBlock || !activeBlock) {
+      clearHighlight(node);
+      return;
+    }
+    highlightBlock(node, activeBlock.start, activeBlock.end);
+  }
+
   function apply(text: string, path: string | null, theme: 'light' | 'dark'): void {
     const node = content;
     if (!node) return;
     patchPreview(node, renderMarkdown(text));
     rewriteAssets(node, path);
     decorate(node);
+    paintHighlight(node);
     anchors = buildLineMap(node);
     void enhance(node, text, theme).then(() => {
       if (!content) return;
       decorate(content);
+      paintHighlight(content);
       anchors = buildLineMap(content);
     });
   }
@@ -111,6 +121,14 @@
       return;
     }
 
+    const diagram = target.closest<HTMLElement>('pre.mermaid[data-rendered]');
+    if (diagram) {
+      event.preventDefault();
+      const svg = diagramSvgOf(diagram);
+      if (svg) ondiagram?.(svg);
+      return;
+    }
+
     if (event.detail >= 2) {
       const line = lineOfBlock(target);
       if (line !== null) onpicksource?.(line);
@@ -125,12 +143,9 @@
 
   $effect(() => {
     const node = content;
-    if (!node) return;
-    if (!prefs.current.highlightActiveBlock || !activeBlock) {
-      clearHighlight(node);
-      return;
-    }
-    highlightBlock(node, activeBlock.start, activeBlock.end);
+    void activeBlock;
+    void prefs.current.highlightActiveBlock;
+    if (node) paintHighlight(node);
   });
 
   $effect(() => {

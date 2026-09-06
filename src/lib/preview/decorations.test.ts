@@ -68,6 +68,18 @@ describe('decorateDiagrams', () => {
   });
 });
 
+describe('rendered diagram markers', () => {
+  it('marks a rendered diagram so a click can find it', () => {
+    const el = root('<pre class="mermaid" data-rendered="1"><svg></svg></pre>');
+    expect(el.querySelector('pre.mermaid[data-rendered]')).not.toBeNull();
+  });
+
+  it('does not mark a diagram that failed to render', () => {
+    const el = root('<pre class="mermaid-error" data-rendered="1">bad</pre>');
+    expect(el.querySelector('pre.mermaid[data-rendered]')).toBeNull();
+  });
+});
+
 describe('codeTextOf', () => {
   it('returns the code text', () => {
     const el = root('<pre><code>const a = 1;</code></pre>');
