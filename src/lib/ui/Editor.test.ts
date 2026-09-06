@@ -92,3 +92,105 @@ describe('Editor', () => {
     expect(editorView(container)?.state.doc.toString()).toBe('contenido externo');
   });
 });
+
+describe('Editor mouse selection', () => {
+  function mousedown(view: EditorView, detail: number): MouseEvent {
+    const event = new MouseEvent('mousedown', {
+      bubbles: true,
+      cancelable: true,
+      detail,
+      button: 0,
+      clientX: 10,
+      clientY: 10,
+    });
+    view.contentDOM.dispatchEvent(event);
+    return event;
+  }
+
+  it('selects the word under a double click', () => {
+    const id = documents.activeId!;
+    const { container } = render(Editor, { docId: id });
+    const view = editorView(container)!;
+    const position = DOC.indexOf('segunda') + 2;
+    view.posAtCoords = () => position;
+    const event = mousedown(view, 2);
+    expect(event.defaultPrevented).toBe(true);
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe(
+      'segunda',
+    );
+  });
+
+  it('selects the sentence under a triple click', () => {
+    const id = documents.activeId!;
+    documents.setText(id, 'Una frase. Otra frase mas larga.');
+    const { container } = render(Editor, { docId: id });
+    const view = editorView(container)!;
+    view.posAtCoords = () => 15;
+    mousedown(view, 3);
+    expect(view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to)).toBe(
+      'Otra frase mas larga.',
+    );
+  });
+
+  it('never includes the line break in a triple click', () => {
+    const id = documents.activeId!;
+    const { container } = render(Editor, { docId: id });
+    const view = editorView(container)!;
+    view.posAtCoords = () => 3;
+    mousedown(view, 3);
+    const selected = view.state.sliceDoc(
+      view.state.selection.main.from,
+      view.state.selection.main.to,
+    );
+    expect(selected).toBe('primera linea');
+    expect(selected).not.toContain('\n');
+  });
+
+  it('does not select a word on a single click', () => {
+    const id = documents.activeId!;
+    const { container } = render(Editor, { docId: id });
+    const view = editorView(container)!;
+    view.posAtCoords = () => 5;
+    mousedown(view, 1);
+    expect(view.state.selection.main.empty).toBe(true);
+  });
+
+  it('reports the selected fragment to the parent', async () => {
+    const id = documents.activeId!;
+    const onfragment = vi.fn();
+    const { container } = render(Editor, { docId: id, onfragment });
+    const view = editorView(container)!;
+    view.dispatch({ selection: { anchor: 0, head: 7 } });
+    await Promise.resolve();
+    expect(onfragment).toHaveBeenLastCalledWith('primera');
+  });
+});
+
+describe('Editor task toggling', () => {
+  it('checks the task on the requested line', async () => {
+    const id = documents.activeId!;
+    documents.setText(id, '- [ ] uno\n- [x] dos');
+    const { component, container } = render(Editor, { docId: id });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    (component as unknown as { toggleTask: (line: number) => void }).toggleTask(0);
+    expect(editorView(container)?.state.doc.toString()).toBe('- [x] uno\n- [x] dos');
+  });
+
+  it('unchecks a checked task', async () => {
+    const id = documents.activeId!;
+    documents.setText(id, '- [ ] uno\n- [x] dos');
+    const { component, container } = render(Editor, { docId: id });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    (component as unknown as { toggleTask: (line: number) => void }).toggleTask(1);
+    expect(editorView(container)?.state.doc.toString()).toBe('- [ ] uno\n- [ ] dos');
+  });
+
+  it('leaves a line that is not a task alone', async () => {
+    const id = documents.activeId!;
+    documents.setText(id, '- normal\n- [x] dos');
+    const { component, container } = render(Editor, { docId: id });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    (component as unknown as { toggleTask: (line: number) => void }).toggleTask(0);
+    expect(editorView(container)?.state.doc.toString()).toBe('- normal\n- [x] dos');
+  });
+});

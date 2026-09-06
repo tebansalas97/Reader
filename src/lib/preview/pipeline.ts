@@ -13,12 +13,16 @@ export function slugify(text: string): string {
     .replace(/\s+/g, '-');
 }
 
+const ITEM_TOKENS = new Set(['list_item_open', 'tr_open']);
+
 function addLineNumbers(md: InstanceType<typeof MarkdownIt>): void {
   const original = md.renderer.renderToken.bind(md.renderer);
   md.renderer.renderToken = (tokens, idx, options) => {
     const token = tokens[idx];
-    if (token && token.nesting !== -1 && token.map && token.level === 0) {
-      token.attrSet('data-line', String(token.map[0]));
+    if (token && token.nesting !== -1 && token.map) {
+      if (token.level === 0 || ITEM_TOKENS.has(token.type)) {
+        token.attrSet('data-line', String(token.map[0]));
+      }
     }
     return original(tokens, idx, options);
   };
@@ -31,7 +35,7 @@ export function createMarkdown(): InstanceType<typeof MarkdownIt> {
     typographer: false,
     breaks: false,
   });
-  md.use(taskLists, { enabled: false, label: true });
+  md.use(taskLists, { enabled: true, label: true });
   md.use(footnote);
   md.use(anchor, { slugify, tabIndex: false });
   addLineNumbers(md);

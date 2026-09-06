@@ -17,6 +17,7 @@
     toggleWrap,
   } from '$lib/editor/commands';
   import { createEditor, reconfigureEditor, setEditorReadOnly } from '$lib/editor/create';
+  import { toggleTaskAtLine } from '$lib/editor/selection';
   import { documents } from '$lib/state/documents.svelte';
   import { prefs, resolvedTheme } from '$lib/state/prefs.svelte';
 
@@ -26,18 +27,23 @@
     onscrollline?: (line: number) => void;
     onblock?: (start: number, end: number) => void;
     onselection?: (words: number) => void;
+    onfragment?: (text: string) => void;
   }
 
-  const { docId, onpasteimage, onscrollline, onblock, onselection }: Props = $props();
+  const { docId, onpasteimage, onscrollline, onblock, onselection, onfragment }: Props =
+    $props();
 
   let host = $state<HTMLElement | null>(null);
   let view: EditorView | null = $state(null);
   let applying = false;
 
   function reportContext(instance: EditorView, line: number): void {
-    const range = blockRangeAt(instance.state.doc.toString(), line - 1);
+    const text = instance.state.doc.toString();
+    const range = blockRangeAt(text, line - 1);
     onblock?.(range.start, range.end);
     onselection?.(selectedWordCount(instance));
+    const main = instance.state.selection.main;
+    onfragment?.(main.empty ? '' : instance.state.sliceDoc(main.from, main.to));
   }
 
   $effect(() => {
@@ -152,6 +158,18 @@
       scrollIntoView: true,
     });
     instance.focus();
+  }
+
+  export function toggleTask(line: number): void {
+    const instance = view;
+    if (!instance) return;
+    const updated = toggleTaskAtLine(instance.state.doc.toString(), line);
+    if (updated === null) return;
+    const selection = instance.state.selection.main;
+    instance.dispatch({
+      changes: { from: 0, to: instance.state.doc.length, insert: updated },
+      selection: { anchor: Math.min(selection.anchor, updated.length) },
+    });
   }
 
   export function insertAtCursor(text: string): void {

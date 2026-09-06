@@ -210,27 +210,56 @@ export function insertImage(view: EditorView, url = '', alt = ''): boolean {
   return true;
 }
 
+const LIST_ITEM = /^(\s*)(?:[-*+]|\d+[.)])\s+/;
+
+function itemIndent(line: string): number | null {
+  const match = LIST_ITEM.exec(line);
+  return match ? match[1]!.length : null;
+}
+
 export function blockRangeAt(text: string, line: number): { start: number; end: number } {
   const lines = text.split('\n');
   const clamped = Math.min(Math.max(0, line), Math.max(0, lines.length - 1));
+
   let inFence = false;
   let fenceStart = 0;
   for (let i = 0; i < lines.length; i += 1) {
-    if (/^\s{0,3}(```|~~~)/.test(lines[i] ?? '')) {
-      if (!inFence) {
-        inFence = true;
-        fenceStart = i;
-      } else {
-        inFence = false;
-        if (clamped >= fenceStart && clamped <= i) return { start: fenceStart, end: i };
-      }
+    if (!/^\s{0,3}(```|~~~)/.test(lines[i] ?? '')) continue;
+    if (!inFence) {
+      inFence = true;
+      fenceStart = i;
+      continue;
     }
+    inFence = false;
+    if (clamped >= fenceStart && clamped <= i) return { start: fenceStart, end: i };
   }
+
   if ((lines[clamped] ?? '').trim().length === 0) return { start: clamped, end: clamped };
+
   let start = clamped;
-  while (start > 0 && (lines[start - 1] ?? '').trim().length > 0) start -= 1;
-  let end = clamped;
-  while (end < lines.length - 1 && (lines[end + 1] ?? '').trim().length > 0) end += 1;
+  while (start > 0 && (lines[start - 1] ?? '').trim().length > 0) {
+    if (itemIndent(lines[start] ?? '') !== null) break;
+    start -= 1;
+  }
+
+  const indent = itemIndent(lines[start] ?? '');
+  if (indent === null) {
+    let end = clamped;
+    while (end < lines.length - 1 && (lines[end + 1] ?? '').trim().length > 0) {
+      if (itemIndent(lines[end + 1] ?? '') !== null) break;
+      end += 1;
+    }
+    return { start, end };
+  }
+
+  let end = start;
+  while (end < lines.length - 1) {
+    const next = lines[end + 1] ?? '';
+    if (next.trim().length === 0) break;
+    const nextIndent = itemIndent(next);
+    if (nextIndent !== null && nextIndent <= indent) break;
+    end += 1;
+  }
   return { start, end };
 }
 

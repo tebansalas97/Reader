@@ -9,7 +9,7 @@ Un lector y editor de **Markdown** rápido, escrito con *Tauri* y `Svelte 5`.
 - Árbol de archivos y esquema del documento
 - [x] Resaltado de código
 - [x] Fórmulas y diagramas
-- [ ] PDF (llega en la Fase 2)
+- [ x] PDF (llega en la Fase 2)
 
 > El presupuesto de arranque es de 400 ms hasta el primer pintado.
 > El instalador pesa menos de 15 MB.

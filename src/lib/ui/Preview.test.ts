@@ -168,3 +168,99 @@ describe('Preview', () => {
     );
   });
 });
+
+describe('Preview task list', () => {
+  it('renders an enabled checkbox for each task', async () => {
+    documents.setText(documents.activeId!, '- [ ] uno\n- [x] dos\n');
+    const { container } = render(Preview, { docId: documents.activeId!, onopen: vi.fn() });
+    await settle();
+    const boxes = content(container).querySelectorAll('input[type="checkbox"]');
+    expect(boxes).toHaveLength(2);
+    expect((boxes[0] as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('gives every list item its source line', async () => {
+    documents.setText(documents.activeId!, '- [ ] uno\n- [x] dos\n');
+    const { container } = render(Preview, { docId: documents.activeId!, onopen: vi.fn() });
+    await settle();
+    const items = content(container).querySelectorAll('li[data-line]');
+    expect(Array.from(items).map((i) => (i as HTMLElement).dataset.line)).toEqual(['0', '1']);
+  });
+
+  it('reports the line when a checkbox is clicked', async () => {
+    documents.setText(documents.activeId!, '- [ ] uno\n- [x] dos\n');
+    const ontask = vi.fn();
+    const { container } = render(Preview, {
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      ontask,
+    });
+    await settle();
+    const boxes = content(container).querySelectorAll('input[type="checkbox"]');
+    click(boxes[1]!);
+    expect(ontask).toHaveBeenCalledWith(1);
+  });
+
+  it('does not treat a checkbox click as a source jump', async () => {
+    documents.setText(documents.activeId!, '- [ ] uno\n');
+    const onpicksource = vi.fn();
+    const { container } = render(Preview, {
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      onpicksource,
+      ontask: vi.fn(),
+    });
+    await settle();
+    click(content(container).querySelector('input[type="checkbox"]')!, 2);
+    expect(onpicksource).not.toHaveBeenCalled();
+  });
+});
+
+describe('Preview precise highlight', () => {
+  it('highlights only the list item under the cursor', async () => {
+    documents.setText(documents.activeId!, '- uno\n- dos\n- tres\n');
+    const { container } = render(Preview, {
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      activeBlock: { start: 1, end: 1 },
+    });
+    await settle();
+    const active = content(container).querySelector('.is-active-block');
+    expect(active?.tagName).toBe('LI');
+    expect(active?.textContent?.trim()).toBe('dos');
+  });
+
+  it('marks the exact selected words inside the block', async () => {
+    documents.setText(documents.activeId!, 'una frase larga y clara\n');
+    const { container } = render(Preview, {
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      activeBlock: { start: 0, end: 0 },
+      fragment: 'frase larga',
+    });
+    await settle();
+    expect(content(container).querySelector('mark.is-selected-text')?.textContent).toBe(
+      'frase larga',
+    );
+  });
+
+  it('drops the mark when the selection is cleared', async () => {
+    documents.setText(documents.activeId!, 'una frase larga\n');
+    const { container, rerender } = render(Preview, {
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      activeBlock: { start: 0, end: 0 },
+      fragment: 'frase',
+    });
+    await settle();
+    expect(content(container).querySelector('mark.is-selected-text')).not.toBeNull();
+    await rerender({
+      docId: documents.activeId!,
+      onopen: vi.fn(),
+      activeBlock: { start: 0, end: 0 },
+      fragment: '',
+    });
+    await settle();
+    expect(content(container).querySelector('mark.is-selected-text')).toBeNull();
+  });
+});

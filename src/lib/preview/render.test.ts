@@ -22,10 +22,25 @@ describe('renderMarkdown', () => {
     expect(html).toContain('<td>1</td>');
   });
 
-  it('renders task list checkboxes as disabled inputs', () => {
+  it('renders task list checkboxes that the reader can toggle', () => {
     const html = renderMarkdown('- [x] hecho\n- [ ] pendiente');
     expect(html).toContain('type="checkbox"');
-    expect(html).toContain('disabled');
+    expect(html).not.toContain('disabled');
+  });
+
+  it('keeps the checked state of a finished task', () => {
+    expect(renderMarkdown('- [x] hecho')).toContain('checked');
+  });
+
+  it('gives each list item its source line', () => {
+    const html = renderMarkdown('- uno\n- dos');
+    expect(html).toMatch(/<li[^>]*data-line="0"/);
+    expect(html).toMatch(/<li[^>]*data-line="1"/);
+  });
+
+  it('strips any input that is not a checkbox', () => {
+    const html = renderMarkdown('<input type="text" name="robo">');
+    expect(html).not.toContain('<input');
   });
 
   it('renders footnotes', () => {

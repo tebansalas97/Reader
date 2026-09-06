@@ -279,6 +279,41 @@ describe('blockRangeAt', () => {
   it('handles an empty document', () => {
     expect(blockRangeAt('', 0)).toEqual({ start: 0, end: 0 });
   });
+
+  const list = '- uno\n- dos\n- tres\n';
+
+  it('returns only the list item under the cursor', () => {
+    expect(blockRangeAt(list, 1)).toEqual({ start: 1, end: 1 });
+  });
+
+  it('returns the first item without swallowing the rest', () => {
+    expect(blockRangeAt(list, 0)).toEqual({ start: 0, end: 0 });
+  });
+
+  it('keeps a wrapped continuation line with its item', () => {
+    const wrapped = '- uno\n  sigue\n- dos\n';
+    expect(blockRangeAt(wrapped, 0)).toEqual({ start: 0, end: 1 });
+  });
+
+  it('keeps a nested item with its parent', () => {
+    const nested = '- uno\n  - anidado\n- dos\n';
+    expect(blockRangeAt(nested, 0)).toEqual({ start: 0, end: 1 });
+  });
+
+  it('returns the nested item alone when the cursor is on it', () => {
+    const nested = '- uno\n  - anidado\n- dos\n';
+    expect(blockRangeAt(nested, 1)).toEqual({ start: 1, end: 1 });
+  });
+
+  it('treats an ordered list the same way', () => {
+    const ordered = '1. uno\n2. dos\n';
+    expect(blockRangeAt(ordered, 1)).toEqual({ start: 1, end: 1 });
+  });
+
+  it('returns a single task item', () => {
+    const tasks = '- [ ] uno\n- [x] dos\n';
+    expect(blockRangeAt(tasks, 0)).toEqual({ start: 0, end: 0 });
+  });
 });
 
 describe('selectedWordCount', () => {

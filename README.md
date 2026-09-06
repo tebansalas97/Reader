@@ -29,6 +29,11 @@ firma. La Fase 3, edición del contenido de un PDF.
 - Resaltado del bloque que estás editando en la vista previa, y doble clic en la
   vista previa para llevar el cursor a esa línea del editor.
 - Botón de copiar en cada bloque de código.
+- Casillas de tarea marcables desde la vista previa: el cambio se escribe en el
+  archivo.
+- Doble clic selecciona la palabra, triple clic la frase, sin arrastrar el salto
+  de línea.
+- La vista previa marca la selección exacta dentro del bloque activo.
 - Visor de diagramas a pantalla completa con zoom, desplazamiento y exportación a
   SVG o PNG.
 - Interruptor para activar o desactivar la sincronización del scroll.
@@ -79,7 +84,10 @@ npm run tauri dev
 
 Dentro del editor: `Ctrl+B` negrita, `Ctrl+I` cursiva, `` Ctrl+` `` código,
 `Ctrl+K` enlace, `Ctrl+1` a `Ctrl+6` títulos, `Ctrl+Shift+L` lista,
-`Ctrl+Shift+T` tarea, `Ctrl+Shift+Q` cita, `Ctrl+F` buscar, `Ctrl+H` reemplazar.
+`Ctrl+Shift+T` tarea, `Ctrl+Shift+Q` cita, `Ctrl+F` buscar, `Ctrl+H` reemplazar,
+`Alt+Arriba` y `Alt+Abajo` mover la línea, `Ctrl+Shift+D` duplicarla,
+`Ctrl+Shift+K` borrarla, `Ctrl+L` seleccionarla y `Ctrl+D` seleccionar la
+siguiente aparición.
 
 ## Arquitectura
 

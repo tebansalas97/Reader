@@ -1,13 +1,16 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import {
+    activeBlockElement,
     clearHighlight,
+    clearSelectionMark,
     codeTextOf,
     decorateCodeBlocks,
     decorateDiagrams,
     diagramSvgOf,
     highlightBlock,
     lineOfBlock,
+    markSelection,
   } from '$lib/preview/decorations';
   import { enhance } from '$lib/preview/lazy';
   import { handlePreviewClick, rewriteAssets } from '$lib/preview/links';
@@ -27,15 +30,26 @@
   interface Props {
     docId: string;
     activeBlock?: { start: number; end: number } | null;
+    fragment?: string;
     onopen: (path: string) => void;
     onscrollline?: (line: number) => void;
     onpicksource?: (line: number) => void;
     oncopy?: (ok: boolean) => void;
     ondiagram?: (svg: string) => void;
+    ontask?: (line: number) => void;
   }
 
-  const { docId, activeBlock, onopen, onscrollline, onpicksource, oncopy, ondiagram }: Props =
-    $props();
+  const {
+    docId,
+    activeBlock,
+    fragment,
+    onopen,
+    onscrollline,
+    onpicksource,
+    oncopy,
+    ondiagram,
+    ontask,
+  }: Props = $props();
 
   const DEBOUNCE_THRESHOLD = 200 * 1024;
 
@@ -52,11 +66,14 @@
   }
 
   function paintHighlight(node: HTMLElement): void {
+    clearSelectionMark(node);
     if (!prefs.current.highlightActiveBlock || !activeBlock) {
       clearHighlight(node);
       return;
     }
     highlightBlock(node, activeBlock.start, activeBlock.end);
+    const block = activeBlockElement(node);
+    if (block && fragment && fragment.trim().length > 0) markSelection(block, fragment);
   }
 
   function apply(text: string, path: string | null, theme: 'light' | 'dark'): void {
@@ -101,6 +118,17 @@
     const target = event.target;
     if (!(target instanceof Element)) return;
 
+    if (target instanceof HTMLInputElement && target.type === 'checkbox') {
+      const item = target.closest<HTMLElement>('li[data-line]');
+      const line = item ? Number(item.dataset.line) : Number.NaN;
+      if (Number.isFinite(line)) {
+        ontask?.(line);
+      } else {
+        target.checked = !target.checked;
+      }
+      return;
+    }
+
     const action = target.closest<HTMLElement>('[data-action]');
     if (action) {
       event.preventDefault();
@@ -144,6 +172,7 @@
   $effect(() => {
     const node = content;
     void activeBlock;
+    void fragment;
     void prefs.current.highlightActiveBlock;
     if (node) paintHighlight(node);
   });

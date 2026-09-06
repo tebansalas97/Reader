@@ -32,9 +32,7 @@ function ensureHook(): void {
   DOMPurify.addHook('uponSanitizeElement', (node, data) => {
     if (data.tagName !== 'input') return;
     const el = node as Element;
-    const isTaskCheckbox =
-      el.getAttribute?.('type') === 'checkbox' && el.hasAttribute?.('disabled');
-    if (!isTaskCheckbox) el.remove?.();
+    if (el.getAttribute?.('type') !== 'checkbox') el.remove?.();
   });
   hooked = true;
 }

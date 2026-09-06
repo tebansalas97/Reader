@@ -42,6 +42,14 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 12i. Abre la paleta con Ctrl+Shift+P, escribe "tabla" y pulsa Enter.
 12j. Copia texto con formato de una pagina web y pegalo. Llega como Markdown.
 12k. Aumenta y reduce el texto con Ctrl+ y Ctrl-, y restauralo con Ctrl+0.
+12l. Haz doble clic en una palabra del editor. Se selecciona esa palabra sola.
+12m. Haz triple clic en una frase. Se selecciona la frase sin el salto de linea.
+12n. Selecciona unas palabras. La vista previa las marca exactamente.
+12o. Pon el cursor en un elemento de una lista. Solo se resalta ese elemento.
+12p. Marca una casilla desde la vista previa. El archivo pasa de [ ] a [x] y el
+     editor lo refleja.
+12q. Mueve una linea con Alt+Arriba y Alt+Abajo, duplicala con Ctrl+Shift+D y
+     borrala con Ctrl+Shift+K.
 
 ## Cambios desde fuera
 

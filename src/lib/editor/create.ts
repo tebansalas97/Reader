@@ -4,7 +4,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { bracketMatching, indentUnit } from '@codemirror/language';
 import { languages } from '@codemirror/language-data';
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search';
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state';
 import {
   drawSelection,
   dropCursor,
@@ -18,6 +18,7 @@ import { createGestureTracker } from '$lib/preview/scroll-sync';
 import type { Prefs } from '$lib/state/prefs.svelte';
 import { insertLink } from './commands';
 import { htmlToMarkdown, looksLikeRichHtml } from './html-to-markdown';
+import { sentenceRangeAt, wordRangeAt } from './selection';
 import { readerKeymap } from './keymap';
 import { editorTheme } from './theme';
 
@@ -69,6 +70,18 @@ export function createEditor(options: CreateEditorOptions): EditorView {
     pointerdown() {
       gesture.note();
       return false;
+    },
+    mousedown(event, view) {
+      if (event.detail < 2 || event.button !== 0) return false;
+      const position = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (position === null) return false;
+      const text = view.state.doc.toString();
+      const range = event.detail === 2 ? wordRangeAt(text, position) : sentenceRangeAt(text, position);
+      if (range.from === range.to) return false;
+      event.preventDefault();
+      view.dispatch({ selection: EditorSelection.range(range.from, range.to) });
+      view.focus();
+      return true;
     },
     keydown() {
       gesture.note();

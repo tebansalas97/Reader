@@ -59,6 +59,7 @@
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let activeBlock = $state<{ start: number; end: number } | null>(null);
   let selectedWords = $state(0);
+  let fragment = $state('');
 
   const active = $derived(documents.active);
   const outline = $derived(extractOutline(active?.text ?? ''));
@@ -567,6 +568,7 @@
                   onscrollline={onEditorScroll}
                   onblock={onActiveBlock}
                   onselection={(n) => (selectedWords = n)}
+                  onfragment={(text) => (fragment = text)}
                 />
               {/snippet}
               {#snippet right()}
@@ -574,9 +576,11 @@
                   bind:this={preview}
                   docId={active.id}
                   {activeBlock}
+                  {fragment}
                   onopen={(path) => void openDocument(path)}
                   onscrollline={onPreviewScroll}
                   onpicksource={goToSource}
+                  ontask={(line) => editor?.toggleTask(line)}
                   oncopy={(ok) => toasts.push(t(ok ? 'preview.copied' : 'preview.copyFailed'))}
                   ondiagram={(svg) => (ui.diagram = svg)}
                 />
@@ -589,6 +593,7 @@
               onpasteimage={insertPastedImage}
               onblock={onActiveBlock}
               onselection={(n) => (selectedWords = n)}
+              onfragment={(text) => (fragment = text)}
             />
           {:else}
             <Preview
@@ -596,6 +601,7 @@
               docId={active.id}
               onopen={(path) => void openDocument(path)}
               onpicksource={goToSource}
+              ontask={(line) => editor?.toggleTask(line)}
               oncopy={(ok) => toasts.push(t(ok ? 'preview.copied' : 'preview.copyFailed'))}
               ondiagram={(svg) => (ui.diagram = svg)}
             />
