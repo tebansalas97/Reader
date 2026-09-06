@@ -49,6 +49,7 @@ pub fn run() {
             commands::fs::read_text,
             commands::fs::write_text,
             commands::fs::read_bytes,
+            commands::fs::write_bytes,
             commands::fs::exists,
             commands::dir::list_dir,
             commands::watcher::watch,

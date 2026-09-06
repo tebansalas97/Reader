@@ -1,5 +1,14 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import {
+    clearHighlight,
+    codeTextOf,
+    decorateCodeBlocks,
+    decorateDiagrams,
+    diagramSvgOf,
+    highlightBlock,
+    lineOfBlock,
+  } from '$lib/preview/decorations';
   import { enhance } from '$lib/preview/lazy';
   import { handlePreviewClick, rewriteAssets } from '$lib/preview/links';
   import { patchPreview } from '$lib/preview/patch';
@@ -17,11 +26,16 @@
 
   interface Props {
     docId: string;
+    activeBlock?: { start: number; end: number } | null;
     onopen: (path: string) => void;
     onscrollline?: (line: number) => void;
+    onpicksource?: (line: number) => void;
+    oncopy?: (ok: boolean) => void;
+    ondiagram?: (svg: string) => void;
   }
 
-  const { docId, onopen, onscrollline }: Props = $props();
+  const { docId, activeBlock, onopen, onscrollline, onpicksource, oncopy, ondiagram }: Props =
+    $props();
 
   const DEBOUNCE_THRESHOLD = 200 * 1024;
 
@@ -32,14 +46,22 @@
   let timer: ReturnType<typeof setTimeout> | null = null;
   const gesture = createGestureTracker();
 
+  function decorate(node: HTMLElement): void {
+    decorateCodeBlocks(node, t('preview.copy'));
+    decorateDiagrams(node, t('preview.expand'));
+  }
+
   function apply(text: string, path: string | null, theme: 'light' | 'dark'): void {
     const node = content;
     if (!node) return;
     patchPreview(node, renderMarkdown(text));
     rewriteAssets(node, path);
+    decorate(node);
     anchors = buildLineMap(node);
     void enhance(node, text, theme).then(() => {
-      if (content) anchors = buildLineMap(content);
+      if (!content) return;
+      decorate(content);
+      anchors = buildLineMap(content);
     });
   }
 
@@ -56,6 +78,45 @@
     frame = requestAnimationFrame(() => apply(text, path, theme));
   }
 
+  async function copyCode(pre: HTMLElement): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(codeTextOf(pre));
+      oncopy?.(true);
+    } catch {
+      oncopy?.(false);
+    }
+  }
+
+  function onContentClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    const action = target.closest<HTMLElement>('[data-action]');
+    if (action) {
+      event.preventDefault();
+      event.stopPropagation();
+      const pre = action.closest('pre');
+      if (!pre) return;
+      if (action.dataset.action === 'copy-code') {
+        void copyCode(pre);
+        return;
+      }
+      const svg = diagramSvgOf(pre);
+      if (svg) ondiagram?.(svg);
+      return;
+    }
+
+    if (target.closest('a')) {
+      handlePreviewClick(event, documents.byId(docId)?.path ?? null, onopen);
+      return;
+    }
+
+    if (event.detail >= 2) {
+      const line = lineOfBlock(target);
+      if (line !== null) onpicksource?.(line);
+    }
+  }
+
   $effect(() => {
     const doc = documents.byId(docId);
     if (!doc || doc.previewDisabled || !content) return;
@@ -64,11 +125,19 @@
 
   $effect(() => {
     const node = content;
+    if (!node) return;
+    if (!prefs.current.highlightActiveBlock || !activeBlock) {
+      clearHighlight(node);
+      return;
+    }
+    highlightBlock(node, activeBlock.start, activeBlock.end);
+  });
+
+  $effect(() => {
+    const node = content;
     const outer = scroller;
     if (!node || !outer) return;
-    const onClick = (event: MouseEvent) => {
-      handlePreviewClick(event, documents.byId(docId)?.path ?? null, onopen);
-    };
+    const onClick = (event: MouseEvent) => onContentClick(event);
     const note = () => gesture.note();
     node.addEventListener('click', onClick);
     outer.addEventListener('pointerdown', note);
@@ -94,6 +163,15 @@
   export function topLine(): number {
     if (!scroller) return 0;
     return lineForPreviewTop(anchors, scroller.scrollTop);
+  }
+
+  export function revealBlock(line: number): void {
+    const outer = scroller;
+    if (!outer) return;
+    const target = previewTopForLine(anchors, line);
+    if (target < outer.scrollTop || target > outer.scrollTop + outer.clientHeight - 80) {
+      outer.scrollTop = Math.max(0, target - outer.clientHeight / 3);
+    }
   }
 
   export function html(): string {

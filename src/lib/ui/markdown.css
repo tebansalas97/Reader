@@ -215,3 +215,68 @@
   overflow-y: hidden;
   padding: 4px 0;
 }
+
+.markdown-body pre {
+  position: relative;
+}
+
+.markdown-body .code-copy,
+.markdown-body .diagram-zoom {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 3px 9px;
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+  cursor: pointer;
+}
+
+.markdown-body pre:hover .code-copy,
+.markdown-body pre:hover .diagram-zoom,
+.markdown-body .code-copy:focus-visible,
+.markdown-body .diagram-zoom:focus-visible {
+  opacity: 1;
+}
+
+.markdown-body .code-copy:hover,
+.markdown-body .diagram-zoom:hover {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.markdown-body pre.mermaid {
+  cursor: zoom-in;
+}
+
+.markdown-body .is-active-block {
+  position: relative;
+}
+
+.markdown-body .is-active-block::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: -18px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.85;
+}
+
+.markdown-body .is-active-block::after {
+  content: '';
+  position: absolute;
+  inset: -4px -12px;
+  border-radius: 5px;
+  background: var(--accent);
+  opacity: 0.07;
+  pointer-events: none;
+}

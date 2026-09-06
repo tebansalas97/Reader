@@ -107,6 +107,16 @@ pub async fn read_bytes(path: String) -> AppResult<Vec<u8>> {
 }
 
 #[tauri::command]
+pub async fn write_bytes(path: String, bytes: Vec<u8>) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let p = validate(&path)?;
+        fs::write(&p, &bytes).map_err(|e| AppError::from_io(e, &path))
+    })
+    .await
+    .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))?
+}
+
+#[tauri::command]
 pub async fn exists(path: String) -> bool {
     Path::new(&path).exists()
 }

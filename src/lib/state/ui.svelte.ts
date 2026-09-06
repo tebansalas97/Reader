@@ -10,7 +10,11 @@ class UiStore {
   zen = $state(false);
   splitRatio = $state(0.5);
   settingsOpen = $state(false);
+  paletteOpen = $state(false);
   folder = $state<string | null>(null);
+  scrollSync = $state(true);
+  showToolbar = $state(true);
+  diagram = $state<string | null>(null);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);
@@ -23,6 +27,14 @@ class UiStore {
 
   toggleZen(): void {
     this.zen = !this.zen;
+  }
+
+  toggleScrollSync(): void {
+    this.scrollSync = !this.scrollSync;
+  }
+
+  toggleToolbar(): void {
+    this.showToolbar = !this.showToolbar;
   }
 }
 

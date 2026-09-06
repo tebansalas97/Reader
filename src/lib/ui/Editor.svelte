@@ -1,5 +1,21 @@
 <script lang="ts">
+  import { redo, undo } from '@codemirror/commands';
+  import { openSearchPanel } from '@codemirror/search';
+  import { EditorSelection } from '@codemirror/state';
   import type { EditorView } from '@codemirror/view';
+  import { untrack } from 'svelte';
+  import {
+    blockRangeAt,
+    insertCodeBlock,
+    insertHorizontalRule,
+    insertImage,
+    insertLink,
+    insertTable,
+    selectedWordCount,
+    toggleHeading,
+    toggleLinePrefix,
+    toggleWrap,
+  } from '$lib/editor/commands';
   import { createEditor, reconfigureEditor, setEditorReadOnly } from '$lib/editor/create';
   import { documents } from '$lib/state/documents.svelte';
   import { prefs, resolvedTheme } from '$lib/state/prefs.svelte';
@@ -8,30 +24,48 @@
     docId: string;
     onpasteimage?: (file: File) => void;
     onscrollline?: (line: number) => void;
+    onblock?: (start: number, end: number) => void;
+    onselection?: (words: number) => void;
   }
 
-  const { docId, onpasteimage, onscrollline }: Props = $props();
+  const { docId, onpasteimage, onscrollline, onblock, onselection }: Props = $props();
 
   let host = $state<HTMLElement | null>(null);
   let view: EditorView | null = $state(null);
   let applying = false;
 
+  function reportContext(instance: EditorView, line: number): void {
+    const range = blockRangeAt(instance.state.doc.toString(), line - 1);
+    onblock?.(range.start, range.end);
+    onselection?.(selectedWordCount(instance));
+  }
+
   $effect(() => {
     const node = host;
     if (!node) return;
-    const doc = documents.byId(docId);
-    if (!doc) return;
+    const initial = untrack(() => {
+      const doc = documents.byId(docId);
+      return {
+        text: doc?.text ?? '',
+        readOnly: doc?.readOnly ?? false,
+        prefs: prefs.current,
+        theme: resolvedTheme(),
+      };
+    });
     const instance = createEditor({
       parent: node,
-      doc: doc.text,
-      prefs: prefs.current,
-      theme: resolvedTheme(),
-      readOnly: doc.readOnly,
+      doc: initial.text,
+      prefs: initial.prefs,
+      theme: initial.theme,
+      readOnly: initial.readOnly,
       onChange: (text) => {
         if (applying) return;
         documents.setText(docId, text);
       },
-      onCursor: (line, col) => documents.setCursor(docId, line, col),
+      onCursor: (line, col) => {
+        documents.setCursor(docId, line, col);
+        reportContext(instance, line);
+      },
       onScrollLine: (line) => {
         documents.setScrollLine(docId, line);
         onscrollline?.(line);
@@ -40,6 +74,7 @@
     });
     view = instance;
     instance.focus();
+    reportContext(instance, 1);
     return () => {
       instance.destroy();
       view = null;
@@ -58,24 +93,32 @@
     void gutter;
     void tab;
     void family;
-    if (view) reconfigureEditor(view, prefs.current, theme);
+    const instance = untrack(() => view);
+    if (instance) reconfigureEditor(instance, prefs.current, theme);
   });
 
   $effect(() => {
-    const doc = documents.byId(docId);
-    if (view && doc) setEditorReadOnly(view, doc.readOnly);
+    const readOnly = documents.byId(docId)?.readOnly ?? false;
+    const instance = untrack(() => view);
+    if (instance) setEditorReadOnly(instance, readOnly);
   });
 
   $effect(() => {
-    const doc = documents.byId(docId);
-    const instance = view;
-    if (!instance || !doc) return;
-    if (doc.text === instance.state.doc.toString()) return;
+    const text = documents.byId(docId)?.text;
+    const instance = untrack(() => view);
+    if (instance === null || text === undefined) return;
+    if (text === instance.state.doc.toString()) return;
+    const previous = instance.state.selection.main;
+    const scrollTop = instance.scrollDOM.scrollTop;
+    const anchor = Math.min(previous.anchor, text.length);
+    const head = Math.min(previous.head, text.length);
     applying = true;
     instance.dispatch({
-      changes: { from: 0, to: instance.state.doc.length, insert: doc.text },
+      changes: { from: 0, to: instance.state.doc.length, insert: text },
+      selection: EditorSelection.range(anchor, head),
     });
     applying = false;
+    instance.scrollDOM.scrollTop = scrollTop;
   });
 
   export function focus(): void {
@@ -86,9 +129,7 @@
     const instance = view;
     if (!instance) return;
     const target = Math.min(Math.max(1, line + 1), instance.state.doc.lines);
-    const pos = instance.state.doc.line(target).from;
-    const top = instance.lineBlockAt(pos).top;
-    instance.scrollDOM.scrollTop = top;
+    instance.scrollDOM.scrollTop = instance.lineBlockAt(instance.state.doc.line(target).from).top;
   }
 
   export function moveCursorToLine(line: number): void {
@@ -97,6 +138,19 @@
     const target = Math.min(Math.max(1, line + 1), instance.state.doc.lines);
     const pos = instance.state.doc.line(target).from;
     instance.dispatch({ selection: { anchor: pos }, scrollIntoView: true });
+    instance.focus();
+  }
+
+  export function selectLines(start: number, end: number): void {
+    const instance = view;
+    if (!instance) return;
+    const total = instance.state.doc.lines;
+    const first = instance.state.doc.line(Math.min(Math.max(1, start + 1), total));
+    const last = instance.state.doc.line(Math.min(Math.max(1, end + 1), total));
+    instance.dispatch({
+      selection: EditorSelection.range(first.from, last.to),
+      scrollIntoView: true,
+    });
     instance.focus();
   }
 
@@ -109,6 +163,66 @@
       selection: { anchor: range.from + text.length },
     });
     instance.focus();
+  }
+
+  export function run(action: string, argument?: string | number): void {
+    const instance = view;
+    if (!instance) return;
+    switch (action) {
+      case 'undo':
+        undo(instance);
+        break;
+      case 'redo':
+        redo(instance);
+        break;
+      case 'bold':
+        toggleWrap(instance, '**');
+        break;
+      case 'italic':
+        toggleWrap(instance, '*');
+        break;
+      case 'strike':
+        toggleWrap(instance, '~~');
+        break;
+      case 'code':
+        toggleWrap(instance, '`');
+        break;
+      case 'heading':
+        toggleHeading(instance, Number(argument ?? 1));
+        break;
+      case 'bullet':
+        toggleLinePrefix(instance, '- ');
+        break;
+      case 'ordered':
+        toggleLinePrefix(instance, '1. ');
+        break;
+      case 'task':
+        toggleLinePrefix(instance, '- [ ] ');
+        break;
+      case 'quote':
+        toggleLinePrefix(instance, '> ');
+        break;
+      case 'link':
+        insertLink(instance, typeof argument === 'string' ? argument : '');
+        break;
+      case 'image':
+        insertImage(instance, typeof argument === 'string' ? argument : '');
+        break;
+      case 'table':
+        insertTable(instance);
+        break;
+      case 'codeBlock':
+        insertCodeBlock(instance, typeof argument === 'string' ? argument : '');
+        break;
+      case 'rule':
+        insertHorizontalRule(instance);
+        break;
+      case 'find':
+        openSearchPanel(instance);
+        break;
+      default:
+        break;
+    }
   }
 </script>
 

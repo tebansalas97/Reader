@@ -144,3 +144,99 @@ export function continueList(view: EditorView): boolean {
   });
   return true;
 }
+
+export function buildTable(rows: number, columns: number): string {
+  const width = Math.max(1, columns);
+  const body = Math.max(1, rows);
+  const header = `| ${Array.from({ length: width }, (_, i) => `Columna ${i + 1}`).join(' | ')} |`;
+  const divider = `| ${Array.from({ length: width }, () => '---').join(' | ')} |`;
+  const line = `| ${Array.from({ length: width }, () => '   ').join(' | ')} |`;
+  return [header, divider, ...Array.from({ length: body }, () => line)].join('\n');
+}
+
+function insertBlock(view: EditorView, block: string): boolean {
+  const range = view.state.selection.main;
+  const line = view.state.doc.lineAt(range.from);
+  const atLineStart = range.from === line.from;
+  const prefix = atLineStart ? '' : '\n';
+  const needsBlank = line.text.trim().length > 0 ? `${prefix}\n` : prefix;
+  const insert = `${needsBlank}${block}\n`;
+  view.dispatch({
+    changes: { from: range.from, to: range.to, insert },
+    selection: EditorSelection.cursor(range.from + insert.length),
+    scrollIntoView: true,
+  });
+  view.focus();
+  return true;
+}
+
+export function insertTable(view: EditorView, rows = 2, columns = 3): boolean {
+  return insertBlock(view, buildTable(rows, columns));
+}
+
+export function insertHorizontalRule(view: EditorView): boolean {
+  return insertBlock(view, '---');
+}
+
+export function insertCodeBlock(view: EditorView, language = ''): boolean {
+  const range = view.state.selection.main;
+  const selected = view.state.sliceDoc(range.from, range.to);
+  const body = selected.length > 0 ? selected : '';
+  const block = `\`\`\`${language}\n${body}\n\`\`\``;
+  const line = view.state.doc.lineAt(range.from);
+  const prefix = range.from === line.from ? '' : '\n';
+  const insert = `${prefix}${block}\n`;
+  const cursor = range.from + prefix.length + 3 + language.length + 1;
+  view.dispatch({
+    changes: { from: range.from, to: range.to, insert },
+    selection: EditorSelection.cursor(cursor + body.length),
+    scrollIntoView: true,
+  });
+  view.focus();
+  return true;
+}
+
+export function insertImage(view: EditorView, url = '', alt = ''): boolean {
+  const range = view.state.selection.main;
+  const label = alt.length > 0 ? alt : view.state.sliceDoc(range.from, range.to);
+  const insert = `![${label}](${url})`;
+  const cursor = label.length === 0 ? range.from + 2 : range.from + insert.length;
+  view.dispatch({
+    changes: { from: range.from, to: range.to, insert },
+    selection: EditorSelection.cursor(cursor),
+    scrollIntoView: true,
+  });
+  view.focus();
+  return true;
+}
+
+export function blockRangeAt(text: string, line: number): { start: number; end: number } {
+  const lines = text.split('\n');
+  const clamped = Math.min(Math.max(0, line), Math.max(0, lines.length - 1));
+  let inFence = false;
+  let fenceStart = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (/^\s{0,3}(```|~~~)/.test(lines[i] ?? '')) {
+      if (!inFence) {
+        inFence = true;
+        fenceStart = i;
+      } else {
+        inFence = false;
+        if (clamped >= fenceStart && clamped <= i) return { start: fenceStart, end: i };
+      }
+    }
+  }
+  if ((lines[clamped] ?? '').trim().length === 0) return { start: clamped, end: clamped };
+  let start = clamped;
+  while (start > 0 && (lines[start - 1] ?? '').trim().length > 0) start -= 1;
+  let end = clamped;
+  while (end < lines.length - 1 && (lines[end + 1] ?? '').trim().length > 0) end += 1;
+  return { start, end };
+}
+
+export function selectedWordCount(view: EditorView): number {
+  const range = view.state.selection.main;
+  if (range.empty) return 0;
+  const text = view.state.sliceDoc(range.from, range.to);
+  return (text.match(/[\p{L}\p{N}][\p{L}\p{N}'\u2019-]*/gu) ?? []).length;
+}

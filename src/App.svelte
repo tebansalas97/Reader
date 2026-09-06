@@ -10,6 +10,8 @@
     ReaderError,
     saveAsset,
     startupPaths,
+    writeBytes,
+    writeText,
   } from '$lib/fs/api';
   import type { Entry } from '$lib/fs/api-types';
   import { onFsChanged, onOpenPaths } from '$lib/fs/events';
@@ -20,11 +22,13 @@
   import { activeOutlineIndex, extractOutline } from '$lib/preview/outline';
   import { createSyncGuard } from '$lib/preview/scroll-sync';
   import { documents, type Document } from '$lib/state/documents.svelte';
-  import { prefs, resolvedTheme } from '$lib/state/prefs.svelte';
+  import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
   import { recent } from '$lib/state/recent.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { ui } from '$lib/state/ui.svelte';
   import { registerShortcuts } from '$lib/shortcuts';
+  import CommandPalette from '$lib/ui/CommandPalette.svelte';
+  import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
   import Editor from '$lib/ui/Editor.svelte';
   import Preview from '$lib/ui/Preview.svelte';
@@ -33,6 +37,7 @@
   import SplitPane from '$lib/ui/SplitPane.svelte';
   import StatusBar from '$lib/ui/StatusBar.svelte';
   import TitleBar from '$lib/ui/TitleBar.svelte';
+  import Toolbar from '$lib/ui/Toolbar.svelte';
   import Toasts from '$lib/ui/Toasts.svelte';
   import Welcome from '$lib/ui/Welcome.svelte';
   import '$lib/ui/markdown.css';
@@ -52,6 +57,8 @@
   let pending = $state<{ doc: Document; then: 'close' | 'quit' } | null>(null);
   let quitQueue: Document[] = [];
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+  let activeBlock = $state<{ start: number; end: number } | null>(null);
+  let selectedWords = $state(0);
 
   const active = $derived(documents.active);
   const outline = $derived(extractOutline(active?.text ?? ''));
@@ -186,6 +193,26 @@
     await continueQuit();
   }
 
+  const EDITOR_ACTIONS = new Set([
+    'undo',
+    'redo',
+    'bold',
+    'italic',
+    'strike',
+    'code',
+    'heading',
+    'bullet',
+    'ordered',
+    'task',
+    'quote',
+    'link',
+    'image',
+    'table',
+    'codeBlock',
+    'rule',
+    'find',
+  ]);
+
   function cycleTab(direction: number): void {
     if (documents.list.length < 2) return;
     const index = documents.list.findIndex((d) => d.id === documents.activeId);
@@ -244,7 +271,37 @@
     await insertImageFile(name, Array.from(new Uint8Array(buffer)));
   }
 
-  function handleAction(action: string): void {
+  async function saveDiagram(format: 'svg' | 'png', data: string): Promise<void> {
+    const path = await saveDialog({
+      defaultPath: `diagrama.${format}`,
+      filters: [{ name: format.toUpperCase(), extensions: [format] }],
+    }).catch(() => null);
+    if (!path) return;
+    try {
+      if (format === 'svg') {
+        await writeText(path, data, 'lf');
+      } else {
+        const bytes = Array.from(
+          Uint8Array.from(atob(data.split(',')[1] ?? ''), (c) => c.charCodeAt(0)),
+        );
+        await writeBytes(path, bytes);
+      }
+      toasts.push(t('diagram.saved'));
+    } catch (error) {
+      reportError('error.saveFailed', error);
+    }
+  }
+
+  function goToSource(line: number): void {
+    editor?.moveCursorToLine(line);
+    if (ui.viewMode === 'preview') ui.viewMode = 'split';
+  }
+
+  function handleAction(action: string, argument?: string | number): void {
+    if (EDITOR_ACTIONS.has(action)) {
+      editor?.run(action, argument);
+      return;
+    }
     const handlers: Record<string, () => void> = {
       new: () => documents.create(),
       open: () => void openFileFlow(),
@@ -259,7 +316,9 @@
       toggleOutline: () => ui.toggleSidebar('outline'),
       toggleZen: () => ui.toggleZen(),
       exitZen: () => {
-        if (ui.settingsOpen) ui.settingsOpen = false;
+        if (ui.diagram !== null) ui.diagram = null;
+        else if (ui.paletteOpen) ui.paletteOpen = false;
+        else if (ui.settingsOpen) ui.settingsOpen = false;
         else if (ui.zen) ui.zen = false;
       },
       settings: () => (ui.settingsOpen = true),
@@ -267,6 +326,21 @@
       prevTab: () => cycleTab(-1),
       exportHtml: () => void exportHtmlFlow(),
       print: printFlow,
+      palette: () => (ui.paletteOpen = true),
+      viewEditor: () => (ui.viewMode = 'editor'),
+      viewSplit: () => (ui.viewMode = 'split'),
+      viewPreview: () => (ui.viewMode = 'preview'),
+      toggleToolbar: () => {
+        ui.toggleToolbar();
+        prefs.update({ showToolbar: ui.showToolbar });
+      },
+      toggleSync: () => {
+        ui.toggleScrollSync();
+        prefs.update({ scrollSync: ui.scrollSync });
+      },
+      zoomIn: () => zoomEditor(1),
+      zoomOut: () => zoomEditor(-1),
+      zoomReset: resetZoom,
     };
     handlers[action]?.();
   }
@@ -277,11 +351,20 @@
   }
 
   function onEditorScroll(line: number): void {
+    if (!ui.scrollSync) return;
     if (ui.viewMode === 'split' && guard.claim('editor')) preview?.scrollToLine(line);
   }
 
   function onPreviewScroll(line: number): void {
+    if (!ui.scrollSync) return;
     if (ui.viewMode === 'split' && guard.claim('preview')) editor?.scrollToLine(line);
+  }
+
+  function onActiveBlock(start: number, end: number): void {
+    activeBlock = { start, end };
+    if (prefs.current.highlightActiveBlock && ui.viewMode === 'split' && !ui.scrollSync) {
+      preview?.revealBlock(start);
+    }
   }
 
   onMount(() => {
@@ -302,6 +385,10 @@
       prevTab: () => handleAction('prevTab'),
       exportHtml: () => handleAction('exportHtml'),
       print: () => handleAction('print'),
+      palette: () => handleAction('palette'),
+      zoomIn: () => handleAction('zoomIn'),
+      zoomOut: () => handleAction('zoomOut'),
+      zoomReset: () => handleAction('zoomReset'),
     });
     return stop;
   });
@@ -314,6 +401,8 @@
       await prefs.load();
       setLanguage(prefs.current.language);
       ui.splitRatio = prefs.current.splitRatio;
+      ui.scrollSync = prefs.current.scrollSync;
+      ui.showToolbar = prefs.current.showToolbar;
       await recent.load();
       if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder);
 
@@ -420,6 +509,10 @@
     />
   {/if}
 
+  {#if ui.showToolbar && !ui.zen}
+    <Toolbar disabled={active === null} onaction={handleAction} />
+  {/if}
+
   <div class="body">
     {#if ui.sidebar !== null && !ui.zen}
       <Sidebar
@@ -472,24 +565,39 @@
                   docId={active.id}
                   onpasteimage={insertPastedImage}
                   onscrollline={onEditorScroll}
+                  onblock={onActiveBlock}
+                  onselection={(n) => (selectedWords = n)}
                 />
               {/snippet}
               {#snippet right()}
                 <Preview
                   bind:this={preview}
                   docId={active.id}
+                  {activeBlock}
                   onopen={(path) => void openDocument(path)}
                   onscrollline={onPreviewScroll}
+                  onpicksource={goToSource}
+                  oncopy={(ok) => toasts.push(t(ok ? 'preview.copied' : 'preview.copyFailed'))}
+                  ondiagram={(svg) => (ui.diagram = svg)}
                 />
               {/snippet}
             </SplitPane>
           {:else if ui.viewMode === 'editor'}
-            <Editor bind:this={editor} docId={active.id} onpasteimage={insertPastedImage} />
+            <Editor
+              bind:this={editor}
+              docId={active.id}
+              onpasteimage={insertPastedImage}
+              onblock={onActiveBlock}
+              onselection={(n) => (selectedWords = n)}
+            />
           {:else}
             <Preview
               bind:this={preview}
               docId={active.id}
               onopen={(path) => void openDocument(path)}
+              onpicksource={goToSource}
+              oncopy={(ok) => toasts.push(t(ok ? 'preview.copied' : 'preview.copyFailed'))}
+              ondiagram={(svg) => (ui.diagram = svg)}
             />
           {/if}
         </div>
@@ -502,6 +610,7 @@
       doc={active}
       dirty={active !== null && active.text !== active.savedText}
       {saving}
+      {selectedWords}
       onlineending={(value) => {
         if (active) documents.setLineEnding(active.id, value);
       }}
@@ -526,18 +635,35 @@
   <Settings onclose={() => (ui.settingsOpen = false)} />
 {/if}
 
+{#if ui.paletteOpen}
+  <CommandPalette
+    hasDocument={active !== null}
+    onrun={handleAction}
+    onclose={() => (ui.paletteOpen = false)}
+  />
+{/if}
+
+{#if ui.diagram !== null}
+  <DiagramViewer
+    svg={ui.diagram}
+    onclose={() => (ui.diagram = null)}
+    onsave={(format, data) => void saveDiagram(format, data)}
+  />
+{/if}
+
 <Toasts />
 
 <style>
   .app {
-    display: grid;
-    grid-template-rows: auto 1fr auto;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     overflow: hidden;
   }
 
   .body {
     display: flex;
+    flex: 1;
     min-height: 0;
     min-width: 0;
   }

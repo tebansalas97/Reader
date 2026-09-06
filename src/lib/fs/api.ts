@@ -29,6 +29,10 @@ export function writeText(path: string, text: string, lineEnding: LineEnding): P
   return call<number>('write_text', { path, text, lineEnding });
 }
 
+export function writeBytes(path: string, bytes: number[]): Promise<void> {
+  return call<void>('write_bytes', { path, bytes });
+}
+
 export function readBytes(path: string): Promise<number[]> {
   return call<number[]>('read_bytes', { path });
 }

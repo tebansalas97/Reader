@@ -2,9 +2,16 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { describe, expect, it } from 'vitest';
 import {
+  blockRangeAt,
+  buildTable,
   continueList,
   headingLine,
+  insertCodeBlock,
+  insertHorizontalRule,
+  insertImage,
   insertLink,
+  insertTable,
+  selectedWordCount,
   linePrefixToggle,
   listContinuation,
   toggleHeading,
@@ -178,5 +185,108 @@ describe('continueList', () => {
   it('declines when there is a selection', () => {
     const v = view('- uno', 2, 5);
     expect(continueList(v)).toBe(false);
+  });
+});
+
+describe('buildTable', () => {
+  it('builds a header, a divider and the requested body rows', () => {
+    expect(buildTable(2, 2).split('\n')).toHaveLength(4);
+  });
+
+  it('names the columns', () => {
+    expect(buildTable(1, 3)).toContain('Columna 3');
+  });
+
+  it('never builds a table narrower than one column', () => {
+    expect(buildTable(1, 0)).toContain('Columna 1');
+  });
+});
+
+describe('insertTable', () => {
+  it('inserts a table on an empty document', () => {
+    const v = view('', 0);
+    insertTable(v, 1, 2);
+    expect(v.state.doc.toString()).toContain('| --- | --- |');
+  });
+
+  it('separates the table from text already on the line', () => {
+    const v = view('texto', 5);
+    insertTable(v, 1, 2);
+    expect(v.state.doc.toString().startsWith('texto\n\n|')).toBe(true);
+  });
+});
+
+describe('insertHorizontalRule', () => {
+  it('inserts a rule', () => {
+    const v = view('', 0);
+    insertHorizontalRule(v);
+    expect(v.state.doc.toString().trim()).toBe('---');
+  });
+});
+
+describe('insertCodeBlock', () => {
+  it('wraps the selection in a fence', () => {
+    const v = view('const a = 1;', 0, 12);
+    insertCodeBlock(v, 'js');
+    expect(v.state.doc.toString()).toBe('```js\nconst a = 1;\n```\n');
+  });
+
+  it('creates an empty fence when nothing is selected', () => {
+    const v = view('', 0);
+    insertCodeBlock(v);
+    expect(v.state.doc.toString()).toBe('```\n\n```\n');
+  });
+});
+
+describe('insertImage', () => {
+  it('uses the selection as the alt text', () => {
+    const v = view('foto', 0, 4);
+    insertImage(v, 'a.png');
+    expect(v.state.doc.toString()).toBe('![foto](a.png)');
+  });
+
+  it('places the cursor in the alt text when nothing is selected', () => {
+    const v = view('', 0);
+    insertImage(v);
+    expect(v.state.doc.toString()).toBe('![]()');
+    expect(v.state.selection.main.head).toBe(2);
+  });
+});
+
+describe('blockRangeAt', () => {
+  const doc = '# Titulo\n\nParrafo uno\nsigue aqui\n\n```js\nconst a = 1;\n```\n\nFinal\n';
+
+  it('returns the single line of a heading', () => {
+    expect(blockRangeAt(doc, 0)).toEqual({ start: 0, end: 0 });
+  });
+
+  it('groups the lines of a paragraph', () => {
+    expect(blockRangeAt(doc, 3)).toEqual({ start: 2, end: 3 });
+  });
+
+  it('returns the whole fenced block from any line inside it', () => {
+    expect(blockRangeAt(doc, 6)).toEqual({ start: 5, end: 7 });
+  });
+
+  it('returns the blank line itself', () => {
+    expect(blockRangeAt(doc, 1)).toEqual({ start: 1, end: 1 });
+  });
+
+  it('clamps a line past the end', () => {
+    expect(blockRangeAt(doc, 999).end).toBeLessThan(doc.split('\n').length);
+  });
+
+  it('handles an empty document', () => {
+    expect(blockRangeAt('', 0)).toEqual({ start: 0, end: 0 });
+  });
+});
+
+describe('selectedWordCount', () => {
+  it('is zero without a selection', () => {
+    expect(selectedWordCount(view('uno dos', 0))).toBe(0);
+  });
+
+  it('counts the words inside the selection', () => {
+    expect(selectedWordCount(view('uno dos tres', 0, 7))).toBe(2);
   });
 });

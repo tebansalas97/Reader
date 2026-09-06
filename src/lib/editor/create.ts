@@ -17,6 +17,7 @@ import {
 import { createGestureTracker } from '$lib/preview/scroll-sync';
 import type { Prefs } from '$lib/state/prefs.svelte';
 import { insertLink } from './commands';
+import { htmlToMarkdown, looksLikeRichHtml } from './html-to-markdown';
 import { readerKeymap } from './keymap';
 import { editorTheme } from './theme';
 
@@ -83,10 +84,22 @@ export function createEditor(options: CreateEditorOptions): EditorView {
         return true;
       }
       const text = data.getData('text/plain');
-      if (!URL_ONLY.test(text)) return false;
-      if (view.state.selection.main.empty) return false;
+      if (URL_ONLY.test(text) && !view.state.selection.main.empty) {
+        event.preventDefault();
+        insertLink(view, text);
+        return true;
+      }
+      const html = data.getData('text/html');
+      if (html.length === 0 || !looksLikeRichHtml(html)) return false;
+      const markdown = htmlToMarkdown(html);
+      if (markdown.length === 0) return false;
       event.preventDefault();
-      insertLink(view, text);
+      const range = view.state.selection.main;
+      view.dispatch({
+        changes: { from: range.from, to: range.to, insert: markdown },
+        selection: { anchor: range.from + markdown.length },
+        scrollIntoView: true,
+      });
       return true;
     },
   });

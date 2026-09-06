@@ -13,6 +13,11 @@ const BINDINGS: Record<string, string> = {
   'ctrl+shift+tab': 'prevTab',
   'ctrl+shift+h': 'exportHtml',
   'ctrl+p': 'print',
+  'ctrl+shift+p': 'palette',
+  'ctrl++': 'zoomIn',
+  'ctrl+=': 'zoomIn',
+  'ctrl+-': 'zoomOut',
+  'ctrl+0': 'zoomReset',
   f11: 'toggleZen',
   escape: 'exitZen',
 };

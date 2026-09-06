@@ -15,6 +15,9 @@ export interface Prefs {
   language: 'es' | 'en';
   splitRatio: number;
   lastFolder: string | null;
+  scrollSync: boolean;
+  showToolbar: boolean;
+  highlightActiveBlock: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -32,6 +35,9 @@ export const DEFAULT_PREFS: Prefs = {
   language: 'es',
   splitRatio: 0.5,
   lastFolder: null,
+  scrollSync: true,
+  showToolbar: true,
+  highlightActiveBlock: true,
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -71,6 +77,9 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     language: oneOf(stored.language, ['es', 'en'] as const, d.language),
     splitRatio: clamped(stored.splitRatio, 0.2, 0.8, d.splitRatio),
     lastFolder: typeof stored.lastFolder === 'string' ? stored.lastFolder : null,
+    scrollSync: bool(stored.scrollSync, d.scrollSync),
+    showToolbar: bool(stored.showToolbar, d.showToolbar),
+    highlightActiveBlock: bool(stored.highlightActiveBlock, d.highlightActiveBlock),
   };
 }
 
@@ -104,4 +113,18 @@ export function systemTheme(): 'light' | 'dark' {
 
 export function resolvedTheme(): 'light' | 'dark' {
   return prefs.current.theme === 'system' ? systemTheme() : prefs.current.theme;
+}
+
+export function zoomEditor(delta: number): void {
+  prefs.update({
+    editorFontSize: prefs.current.editorFontSize + delta,
+    previewFontSize: prefs.current.previewFontSize + delta,
+  });
+}
+
+export function resetZoom(): void {
+  prefs.update({
+    editorFontSize: DEFAULT_PREFS.editorFontSize,
+    previewFontSize: DEFAULT_PREFS.previewFontSize,
+  });
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { setLanguage, t } from '$lib/i18n';
   import { prefs } from '$lib/state/prefs.svelte';
+  import { ui } from '$lib/state/ui.svelte';
 
   interface Props {
     onclose: () => void;
@@ -56,6 +57,40 @@
             <option value="es">Español</option>
             <option value="en">English</option>
           </select>
+        </label>
+      </section>
+
+      <section>
+        <h3>{t('settings.interface')}</h3>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.showToolbar}
+            onchange={(e) => {
+              ui.showToolbar = e.currentTarget.checked;
+              prefs.update({ showToolbar: e.currentTarget.checked });
+            }}
+          />
+          <span>{t('settings.showToolbar')}</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.highlightActiveBlock}
+            onchange={(e) => prefs.update({ highlightActiveBlock: e.currentTarget.checked })}
+          />
+          <span>{t('settings.highlightBlock')}</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.scrollSync}
+            onchange={(e) => {
+              ui.scrollSync = e.currentTarget.checked;
+              prefs.update({ scrollSync: e.currentTarget.checked });
+            }}
+          />
+          <span>{t('settings.scrollSync')}</span>
         </label>
       </section>
 
