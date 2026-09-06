@@ -28,6 +28,21 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 11. Copia una imagen al portapapeles y pégala en el editor. Mismo resultado.
 12. Selecciona texto y pega una URL encima. Se convierte en un enlace.
 
+## Barra de herramientas y edicion asistida
+
+12b. Selecciona un parrafo y pulsa negrita en la barra. Se envuelve sin que el
+     cursor salte a la primera linea.
+12c. Escribe en mitad del documento. El cursor se queda donde estas.
+12d. Sitúa el cursor en un bloque. La vista previa lo resalta con la barra azul.
+12e. Haz doble clic en un parrafo de la vista previa. El cursor va a esa linea.
+12f. Pulsa el boton de copiar de un bloque de codigo. El portapapeles lo tiene.
+12g. Abre un diagrama con el boton de ampliar. Haz zoom con la rueda, arrastra,
+     pulsa F para ajustar y guardalo en PNG y en SVG.
+12h. Desmarca la casilla de sincronizacion. Los paneles dejan de seguirse.
+12i. Abre la paleta con Ctrl+Shift+P, escribe "tabla" y pulsa Enter.
+12j. Copia texto con formato de una pagina web y pegalo. Llega como Markdown.
+12k. Aumenta y reduce el texto con Ctrl+ y Ctrl-, y restauralo con Ctrl+0.
+
 ## Cambios desde fuera
 
 13. Con el documento sin modificar, edítalo en el Bloc de notas y guarda. Reader

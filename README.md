@@ -24,6 +24,16 @@ firma. La Fase 3, edición del contenido de un PDF.
 - Exportación a HTML autónomo, con las imágenes incrustadas, y a PDF a través del
   diálogo de impresión.
 - Tema claro y oscuro que sigue al de Windows, interfaz en español o inglés.
+- Barra de herramientas de formato con deshacer, títulos, énfasis, listas, cita,
+  enlace, imagen, tabla, bloque de código, línea divisoria y búsqueda.
+- Resaltado del bloque que estás editando en la vista previa, y doble clic en la
+  vista previa para llevar el cursor a esa línea del editor.
+- Botón de copiar en cada bloque de código.
+- Visor de diagramas a pantalla completa con zoom, desplazamiento y exportación a
+  SVG o PNG.
+- Interruptor para activar o desactivar la sincronización del scroll.
+- Paleta de comandos con `Ctrl+Shift+P`.
+- Pegar desde el navegador convierte el HTML a Markdown.
 
 ## Requisitos para desarrollar
 
@@ -63,6 +73,8 @@ npm run tauri dev
 | `F11` | Modo zen |
 | `Ctrl+Shift+H` | Exportar a HTML |
 | `Ctrl+P` | Exportar a PDF |
+| `Ctrl+Shift+P` | Paleta de comandos |
+| `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar, reducir o restaurar el tamano del texto |
 | `Ctrl+,` | Preferencias |
 
 Dentro del editor: `Ctrl+B` negrita, `Ctrl+I` cursiva, `` Ctrl+` `` código,
