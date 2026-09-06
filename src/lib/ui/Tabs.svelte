@@ -12,7 +12,7 @@
   const { items, activeId, onselect, onclose }: Props = $props();
 </script>
 
-<div class="tabs" role="tablist">
+<div class="tabs" role="tablist" data-tauri-drag-region>
   {#each items as item (item.id)}
     <div
       class="tab"

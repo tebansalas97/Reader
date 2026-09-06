@@ -48,7 +48,7 @@
 
 <svelte:window onpointerdown={onWindowPointerDown} />
 
-<div class="menu" bind:this={anchor}>
+<div class="menu" bind:this={anchor} data-tauri-drag-region>
   <button
     class="trigger"
     aria-label={t('menu.title')}

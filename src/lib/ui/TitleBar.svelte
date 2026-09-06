@@ -43,7 +43,7 @@
   <Menu {onaction} />
   <Tabs {items} {activeId} {onselect} {onclose} />
   <div class="spacer" data-tauri-drag-region></div>
-  <div class="modes">
+  <div class="modes" data-tauri-drag-region>
     {#each MODES as item (item.mode)}
       <button
         class="icon"
@@ -59,7 +59,7 @@
       </button>
     {/each}
   </div>
-  <div class="controls">
+  <div class="controls" data-tauri-drag-region>
     <button class="control" title={t('window.minimize')} onclick={() => appWindow.minimize()}>
       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
         <path d="M0 5h10" stroke="currentColor" stroke-width="1" />
