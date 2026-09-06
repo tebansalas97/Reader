@@ -1,2 +1,112 @@
-:root { color-scheme: light dark; }
-html, body { margin: 0; height: 100%; font-family: system-ui, sans-serif; }
+:root {
+  --bg: #ffffff;
+  --bg-elevated: #f6f6f8;
+  --bg-inset: #eeeef2;
+  --bg-hover: #e6e6ec;
+  --border: #e2e2e6;
+  --border-strong: #c9c9cf;
+  --text: #1b1b1f;
+  --text-muted: #61616b;
+  --text-faint: #8b8b95;
+  --accent: #3060d0;
+  --accent-soft: #e8eefc;
+  --accent-contrast: #ffffff;
+  --danger: #c02b2b;
+  --warning: #9a6100;
+  --selection: #cfdcfa;
+  --code-bg: #f3f3f5;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  --radius: 6px;
+  --titlebar-height: 38px;
+  --statusbar-height: 24px;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #17171a;
+  --bg-elevated: #1e1e22;
+  --bg-inset: #232328;
+  --bg-hover: #2c2c33;
+  --border: #2e2e34;
+  --border-strong: #414149;
+  --text: #e6e6ea;
+  --text-muted: #a0a0aa;
+  --text-faint: #74747e;
+  --accent: #6f9bff;
+  --accent-soft: #1e2740;
+  --accent-contrast: #10131c;
+  --danger: #ff6b6b;
+  --warning: #e0a458;
+  --selection: #2b3a5e;
+  --code-bg: #202026;
+  --shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+::selection {
+  background: var(--selection);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid var(--bg);
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
