@@ -13,7 +13,7 @@ export function slugify(text: string): string {
     .replace(/\s+/g, '-');
 }
 
-function addLineNumbers(md: MarkdownIt): void {
+function addLineNumbers(md: InstanceType<typeof MarkdownIt>): void {
   const original = md.renderer.renderToken.bind(md.renderer);
   md.renderer.renderToken = (tokens, idx, options) => {
     const token = tokens[idx];
@@ -24,7 +24,7 @@ function addLineNumbers(md: MarkdownIt): void {
   };
 }
 
-export function createMarkdown(): MarkdownIt {
+export function createMarkdown(): InstanceType<typeof MarkdownIt> {
   const md = new MarkdownIt({
     html: true,
     linkify: true,
@@ -33,7 +33,7 @@ export function createMarkdown(): MarkdownIt {
   });
   md.use(taskLists, { enabled: false, label: true });
   md.use(footnote);
-  md.use(anchor, { slugify, permalink: false, tabIndex: false });
+  md.use(anchor, { slugify, tabIndex: false });
   addLineNumbers(md);
   return md;
 }

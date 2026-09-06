@@ -1,0 +1,67 @@
+@media print {
+  .titlebar,
+  .sidebar,
+  .statusbar,
+  .toasts,
+  .divider,
+  .editor,
+  .notice {
+    display: none !important;
+  }
+
+  html,
+  body,
+  #app,
+  .app,
+  .body,
+  main,
+  .preview {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .preview .content {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  :root {
+    --bg: #ffffff;
+    --bg-elevated: #ffffff;
+    --bg-inset: #f5f5f5;
+    --code-bg: #f5f5f5;
+    --text: #000000;
+    --text-muted: #444444;
+    --text-faint: #666666;
+    --border: #cccccc;
+    --border-strong: #999999;
+    --accent: #1a4bb8;
+  }
+
+  pre,
+  blockquote,
+  table,
+  img,
+  .katex-display {
+    break-inside: avoid;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+  }
+
+  .markdown-body a::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.8em;
+    color: #555555;
+    word-break: break-all;
+  }
+
+  .markdown-body a[href^='#']::after {
+    content: '';
+  }
+}
