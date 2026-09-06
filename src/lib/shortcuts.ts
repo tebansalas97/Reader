@@ -14,6 +14,7 @@ const BINDINGS: Record<string, string> = {
   'ctrl+shift+h': 'exportHtml',
   'ctrl+p': 'print',
   'ctrl+shift+p': 'palette',
+  'ctrl+shift+f': 'toggleSearch',
   'ctrl++': 'zoomIn',
   'ctrl+=': 'zoomIn',
   'ctrl+-': 'zoomOut',

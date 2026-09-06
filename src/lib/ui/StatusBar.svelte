@@ -42,6 +42,16 @@
     {#if doc.readOnly}
       <span class="warn">{t('status.readOnly')}</span>
     {/if}
+    {#if ui.spellState !== 'off'}
+      <span
+        class="pill"
+        class:loading={ui.spellState === 'loading'}
+        class:failed={ui.spellState === 'failed'}
+        title={t('spell.state.' + ui.spellState)}
+      >
+        {t('spell.state.' + ui.spellState)}
+      </span>
+    {/if}
     <button
       class="chip"
       class:on={ui.scrollSync}
@@ -96,6 +106,16 @@
     border-radius: 9px;
     background: var(--accent-soft);
     color: var(--accent);
+  }
+
+  .pill.loading {
+    background: var(--bg-inset);
+    color: var(--text-faint);
+  }
+
+  .pill.failed {
+    background: var(--bg-inset);
+    color: var(--danger);
   }
 
   .chip {

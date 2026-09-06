@@ -39,3 +39,23 @@ export function toReaderError(raw: unknown): ReaderError {
   if (raw instanceof Error) return new ReaderError('Io', raw.message);
   return new ReaderError('Io', String(raw));
 }
+
+export interface SearchHit {
+  path: string;
+  name: string;
+  line: number;
+  column: number;
+  text: string;
+}
+
+export interface SearchOutcome {
+  hits: SearchHit[];
+  truncated: boolean;
+  filesScanned: number;
+}
+
+export interface Snapshot {
+  id: string;
+  savedMs: number;
+  bytes: number;
+}

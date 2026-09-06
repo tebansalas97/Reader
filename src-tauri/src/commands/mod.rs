@@ -1,8 +1,10 @@
 pub mod assets;
 pub mod dir;
 pub mod fs;
+pub mod history;
 pub mod prefs;
 pub mod recent;
+pub mod search;
 pub mod shell;
 pub mod store;
 pub mod watcher;

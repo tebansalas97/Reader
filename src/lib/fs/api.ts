@@ -1,5 +1,13 @@
 import { invoke } from '@tauri-apps/api/core';
-import { toReaderError, type Entry, type LineEnding, type RecentItem, type TextFile } from './api-types';
+import {
+  toReaderError,
+  type Entry,
+  type LineEnding,
+  type RecentItem,
+  type SearchOutcome,
+  type Snapshot,
+  type TextFile,
+} from './api-types';
 
 export {
   ReaderError,
@@ -7,6 +15,9 @@ export {
   type ErrorKind,
   type LineEnding,
   type RecentItem,
+  type SearchHit,
+  type SearchOutcome,
+  type Snapshot,
   type TextFile,
 } from './api-types';
 
@@ -87,4 +98,28 @@ export function allowAssetDir(path: string): Promise<void> {
 
 export function startupPaths(): Promise<string[]> {
   return call<string[]>('startup_paths');
+}
+
+export function searchFolder(
+  path: string,
+  query: string,
+  caseSensitive: boolean,
+): Promise<SearchOutcome> {
+  return call<SearchOutcome>('search_folder', { path, query, caseSensitive });
+}
+
+export function snapshotDocument(path: string, text: string): Promise<void> {
+  return call<void>('snapshot_document', { path, text });
+}
+
+export function listSnapshots(path: string): Promise<Snapshot[]> {
+  return call<Snapshot[]>('list_snapshots', { path });
+}
+
+export function readSnapshot(path: string, id: string): Promise<string> {
+  return call<string>('read_snapshot', { path, id });
+}
+
+export function clearSnapshots(path: string): Promise<void> {
+  return call<void>('clear_snapshots', { path });
 }

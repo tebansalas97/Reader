@@ -18,7 +18,10 @@ import { createGestureTracker } from '$lib/preview/scroll-sync';
 import type { Prefs } from '$lib/state/prefs.svelte';
 import { insertLink } from './commands';
 import { htmlToMarkdown, looksLikeRichHtml } from './html-to-markdown';
+import { focusExtension } from './focus-mode';
 import { sentenceRangeAt, wordRangeAt } from './selection';
+import { spellExtension } from './spell-extension';
+import { nextCell, tableAt } from './tables';
 import { readerKeymap } from './keymap';
 import { editorTheme } from './theme';
 
@@ -32,6 +35,7 @@ export interface CreateEditorOptions {
   onCursor: (line: number, col: number) => void;
   onScrollLine: (line: number) => void;
   onPasteImage?: (file: File) => void;
+  onContextMenu?: (event: MouseEvent, view: EditorView) => boolean;
 }
 
 const themeCompartment = new Compartment();
@@ -42,8 +46,32 @@ const readOnlyCompartment = new Compartment();
 
 const URL_ONLY = /^https?:\/\/\S+$/;
 
+function moveThroughTable(view: EditorView, direction: 1 | -1): boolean {
+  const range = view.state.selection.main;
+  if (!range.empty) return false;
+  const line = view.state.doc.lineAt(range.head);
+  const lines = view.state.doc.toString().split('\n');
+  if (!tableAt(lines, line.number - 1)) return false;
+  const target = nextCell(line.text, range.head - line.from, direction);
+  if (!target) return false;
+  view.dispatch({
+    selection: EditorSelection.range(line.from + target.from, line.from + target.to),
+    scrollIntoView: true,
+  });
+  return true;
+}
+
+function tableTab(view: EditorView): boolean {
+  return moveThroughTable(view, 1);
+}
+
+function tableShiftTab(view: EditorView): boolean {
+  return moveThroughTable(view, -1);
+}
+
 export function createEditor(options: CreateEditorOptions): EditorView {
   const { parent, doc, prefs, theme, onChange, onCursor, onScrollLine, onPasteImage } = options;
+  const onContextMenu = options.onContextMenu;
 
   const updateListener = EditorView.updateListener.of((update) => {
     if (update.docChanged) onChange(update.state.doc.toString());
@@ -86,6 +114,9 @@ export function createEditor(options: CreateEditorOptions): EditorView {
     keydown() {
       gesture.note();
       return false;
+    },
+    contextmenu(event, view) {
+      return onContextMenu ? onContextMenu(event, view) : false;
     },
     paste(event, view) {
       const data = event.clipboardData;
@@ -131,6 +162,7 @@ export function createEditor(options: CreateEditorOptions): EditorView {
       search({ top: true }),
       markdown({ base: markdownLanguage, codeLanguages: languages, addKeymap: false }),
       keymap.of([
+        { key: 'Tab', run: tableTab, shift: tableShiftTab },
         ...readerKeymap,
         ...closeBracketsKeymap,
         ...searchKeymap,
@@ -144,6 +176,8 @@ export function createEditor(options: CreateEditorOptions): EditorView {
         indentUnit.of(' '.repeat(prefs.tabSize)),
       ]),
       readOnlyCompartment.of(EditorState.readOnly.of(options.readOnly ?? false)),
+      spellExtension(),
+      focusExtension(),
       themeCompartment.of(editorTheme(theme, prefs)),
       updateListener,
       domHandlers,

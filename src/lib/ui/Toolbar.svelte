@@ -12,6 +12,22 @@
 
   let headingOpen = $state(false);
   let headingAnchor = $state<HTMLElement | null>(null);
+  let headingTrigger = $state<HTMLElement | null>(null);
+  let menuLeft = $state(0);
+  let menuTop = $state(0);
+
+  function openHeadings(): void {
+    if (headingOpen) {
+      headingOpen = false;
+      return;
+    }
+    const box = headingTrigger?.getBoundingClientRect();
+    if (box) {
+      menuLeft = box.left;
+      menuTop = box.bottom + 4;
+    }
+    headingOpen = true;
+  }
 
   const LEVELS = [1, 2, 3, 4, 5, 6];
 
@@ -81,16 +97,17 @@
   <div class="group" bind:this={headingAnchor}>
     <button
       class="tool wide"
+      bind:this={headingTrigger}
       {disabled}
       aria-expanded={headingOpen}
       title={t('toolbar.heading')}
-      onclick={() => (headingOpen = !headingOpen)}
+      onclick={openHeadings}
     >
       <span class="label">H</span>
       <svg class="caret" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 4l3 3 3-3" /></svg>
     </button>
     {#if headingOpen}
-      <div class="dropdown" role="menu">
+      <div class="dropdown" role="menu" style="left: {menuLeft}px; top: {menuTop}px">
         {#each LEVELS as level (level)}
           <button role="menuitem" onclick={() => pickHeading(level)}>
             <span class="h{level}">{t('toolbar.headingLevel', { n: level })}</span>
@@ -413,9 +430,7 @@
   }
 
   .dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
+    position: fixed;
     z-index: 30;
     min-width: 190px;
     padding: 4px;

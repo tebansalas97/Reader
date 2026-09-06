@@ -51,6 +51,27 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 12q. Mueve una linea con Alt+Arriba y Alt+Abajo, duplicala con Ctrl+Shift+D y
      borrala con Ctrl+Shift+K.
 
+## Herramientas de escritura
+
+12r. Abre una carpeta y pulsa Ctrl+Shift+F. Escribe una palabra que este en
+     varios archivos. Los resultados salen agrupados y al pulsar uno se abre el
+     archivo en esa linea.
+12s. Activa el corrector en Preferencias. Aparece Corrector activo en la barra
+     de estado y las palabras mal escritas se subrayan en rojo.
+12t. Pulsa el boton derecho sobre una palabra subrayada. Salen sugerencias y la
+     opcion de anadirla al diccionario.
+12u. Cambia el idioma del corrector a ingles. El subrayado cambia de parrafo.
+12v. Activa el modo foco. Todo lo que no es el bloque activo se atenua.
+12w. Activa el modo maquina de escribir. La linea activa se queda centrada.
+12x. Pon el cursor en una tabla y pulsa Tab. Salta a la celda siguiente.
+12y. Guarda un documento con una tabla desalineada. Las columnas se alinean.
+12z. Escribe [[nombre]] y mira la vista previa. Es un enlace; al pulsarlo abre
+     nombre.md de la misma carpeta.
+12aa. Guarda dos veces separadas por mas de treinta segundos y abre el panel de
+      historial. Hay dos versiones y se pueden ver y restaurar.
+12ab. Edita prefs.json con el Bloc de notas y guardalo con BOM. Los ajustes
+      siguen respetandose.
+
 ## Cambios desde fuera
 
 13. Con el documento sin modificar, edítalo en el Bloc de notas y guarda. Reader

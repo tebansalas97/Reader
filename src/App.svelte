@@ -9,6 +9,7 @@
     readBytes,
     ReaderError,
     saveAsset,
+    snapshotDocument,
     startupPaths,
     writeBytes,
     writeText,
@@ -27,6 +28,7 @@
   import { toasts } from '$lib/state/toasts.svelte';
   import { ui } from '$lib/state/ui.svelte';
   import { registerShortcuts } from '$lib/shortcuts';
+  import { loadPersonal, personalWords } from '$lib/editor/spell';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
@@ -37,6 +39,7 @@
   import SplitPane from '$lib/ui/SplitPane.svelte';
   import StatusBar from '$lib/ui/StatusBar.svelte';
   import TitleBar from '$lib/ui/TitleBar.svelte';
+  import SpellMenu from '$lib/ui/SpellMenu.svelte';
   import Toolbar from '$lib/ui/Toolbar.svelte';
   import Toasts from '$lib/ui/Toasts.svelte';
   import Welcome from '$lib/ui/Welcome.svelte';
@@ -60,6 +63,14 @@
   let activeBlock = $state<{ start: number; end: number } | null>(null);
   let selectedWords = $state(0);
   let fragment = $state('');
+  let spellMenu = $state<{
+    word: string;
+    suggestions: string[];
+    x: number;
+    y: number;
+    from: number;
+    to: number;
+  } | null>(null);
 
   const active = $derived(documents.active);
   const outline = $derived(extractOutline(active?.text ?? ''));
@@ -115,6 +126,14 @@
   async function saveDocument(doc: Document): Promise<'saved' | 'cancelled'> {
     saving = true;
     try {
+      if (prefs.current.formatTablesOnSave && doc.id === documents.activeId) {
+        const tidy = editor?.tidyTables();
+        if (tidy !== null && tidy !== undefined) documents.setText(doc.id, tidy);
+      }
+      if (prefs.current.localHistory && doc.path !== null) {
+        await snapshotDocument(doc.path, doc.text).catch(() => undefined);
+        ui.historyStamp += 1;
+      }
       const result = await documents.save(doc.id);
       if (result !== 'needs-path') return 'saved';
       return await saveAsFlow(doc);
@@ -293,6 +312,35 @@
     }
   }
 
+  async function openAtLine(path: string, line: number): Promise<void> {
+    await openDocument(path);
+    requestAnimationFrame(() => {
+      editor?.moveCursorToLine(line);
+      preview?.scrollToLine(line);
+    });
+  }
+
+  function restoreSnapshot(text: string): void {
+    const doc = documents.active;
+    if (!doc) return;
+    documents.setText(doc.id, text);
+    toasts.push(t('history.restored'));
+  }
+
+  function applySpelling(replacement: string): void {
+    const menu = spellMenu;
+    spellMenu = null;
+    if (menu) editor?.replaceRange(menu.from, menu.to, replacement);
+  }
+
+  function learnSpelling(): void {
+    const menu = spellMenu;
+    spellMenu = null;
+    if (!menu) return;
+    editor?.learnWord(menu.word);
+    prefs.update({ personalDictionary: personalWords() });
+  }
+
   function goToSource(line: number): void {
     editor?.moveCursorToLine(line);
     if (ui.viewMode === 'preview') ui.viewMode = 'split';
@@ -317,7 +365,9 @@
       toggleOutline: () => ui.toggleSidebar('outline'),
       toggleZen: () => ui.toggleZen(),
       exitZen: () => {
-        if (ui.diagram !== null) ui.diagram = null;
+        if (spellMenu !== null) spellMenu = null;
+        else if (ui.snapshotPreview !== null) ui.snapshotPreview = null;
+        else if (ui.diagram !== null) ui.diagram = null;
         else if (ui.paletteOpen) ui.paletteOpen = false;
         else if (ui.settingsOpen) ui.settingsOpen = false;
         else if (ui.zen) ui.zen = false;
@@ -342,6 +392,17 @@
       zoomIn: () => zoomEditor(1),
       zoomOut: () => zoomEditor(-1),
       zoomReset: resetZoom,
+      toggleSearch: () => ui.toggleSidebar('search'),
+      toggleHistory: () => ui.toggleSidebar('history'),
+      toggleFocus: () => prefs.update({ focusMode: !prefs.current.focusMode }),
+      toggleTypewriter: () => prefs.update({ typewriter: !prefs.current.typewriter }),
+      toggleSpell: () => prefs.update({ spellCheck: !prefs.current.spellCheck }),
+      formatTables: () => {
+        const tidy = editor?.tidyTables();
+        if (tidy !== null && tidy !== undefined && documents.activeId) {
+          documents.setText(documents.activeId, tidy);
+        }
+      },
     };
     handlers[action]?.();
   }
@@ -390,6 +451,7 @@
       zoomIn: () => handleAction('zoomIn'),
       zoomOut: () => handleAction('zoomOut'),
       zoomReset: () => handleAction('zoomReset'),
+      toggleSearch: () => handleAction('toggleSearch'),
     });
     return stop;
   });
@@ -404,6 +466,7 @@
       ui.splitRatio = prefs.current.splitRatio;
       ui.scrollSync = prefs.current.scrollSync;
       ui.showToolbar = prefs.current.showToolbar;
+      loadPersonal(prefs.current.personalDictionary);
       await recent.load();
       if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder);
 
@@ -521,9 +584,13 @@
         {outline}
         activeIndex={activeHeading}
         activePath={active?.path ?? null}
+        activeDocument={active?.path ?? null}
         onopen={(path) => void openDocument(path)}
         onheading={goToHeading}
         onopenfolder={() => void openFolderFlow()}
+        onsearchhit={(path, line) => void openAtLine(path, line)}
+        onrestore={restoreSnapshot}
+        onpreview={(text, label) => (ui.snapshotPreview = { text, label })}
       />
     {/if}
 
@@ -569,6 +636,8 @@
                   onblock={onActiveBlock}
                   onselection={(n) => (selectedWords = n)}
                   onfragment={(text) => (fragment = text)}
+                  onspell={(payload) => (spellMenu = payload)}
+                  onspellfailed={(message) => toasts.error(t('spell.failed', { message }))}
                 />
               {/snippet}
               {#snippet right()}
@@ -594,6 +663,8 @@
               onblock={onActiveBlock}
               onselection={(n) => (selectedWords = n)}
               onfragment={(text) => (fragment = text)}
+              onspell={(payload) => (spellMenu = payload)}
+              onspellfailed={(message) => toasts.error(t('spell.failed', { message }))}
             />
           {:else}
             <Preview
@@ -646,6 +717,34 @@
     hasDocument={active !== null}
     onrun={handleAction}
     onclose={() => (ui.paletteOpen = false)}
+  />
+{/if}
+
+{#if spellMenu !== null}
+  <SpellMenu
+    word={spellMenu.word}
+    suggestions={spellMenu.suggestions}
+    x={spellMenu.x}
+    y={spellMenu.y}
+    onpick={applySpelling}
+    onadd={learnSpelling}
+    onclose={() => (spellMenu = null)}
+  />
+{/if}
+
+{#if ui.snapshotPreview !== null}
+  <Dialog
+    title={t('history.previewTitle', { label: ui.snapshotPreview.label })}
+    body={ui.snapshotPreview.text.slice(0, 600)}
+    choices={[
+      { id: 'restore', label: t('history.restore'), tone: 'primary' },
+      { id: 'cancel', label: t('dialog.cancel') },
+    ]}
+    onchoose={(choice) => {
+      const snapshot = ui.snapshotPreview;
+      ui.snapshotPreview = null;
+      if (choice === 'restore' && snapshot) restoreSnapshot(snapshot.text);
+    }}
   />
 {/if}
 

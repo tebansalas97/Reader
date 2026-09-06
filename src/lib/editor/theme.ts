@@ -76,6 +76,12 @@ export function editorTheme(theme: 'light' | 'dark', prefs: Prefs): Extension {
           color: 'var(--accent-contrast)',
         },
         '.cm-selectionMatch': { backgroundColor: 'var(--bg-hover)' },
+        '.cm-misspelled': {
+          textDecoration: 'underline wavy var(--danger)',
+          textDecorationSkipInk: 'none',
+          textUnderlineOffset: '3px',
+        },
+        '.cm-dimmed-line': { opacity: '0.32', transition: 'opacity 140ms ease' },
         '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
           backgroundColor: 'var(--accent-soft)',
           outline: '1px solid var(--accent)',

@@ -5,7 +5,9 @@
   import type { OutlineItem } from '$lib/preview/outline';
   import { ui } from '$lib/state/ui.svelte';
   import FileTree from './FileTree.svelte';
+  import HistoryPanel from './HistoryPanel.svelte';
   import Outline from './Outline.svelte';
+  import SearchPanel from './SearchPanel.svelte';
 
   interface Props {
     entries: Entry[];
@@ -15,10 +17,25 @@
     onopen: (path: string) => void;
     onheading: (line: number) => void;
     onopenfolder: () => void;
+    activeDocument: string | null;
+    onsearchhit: (path: string, line: number) => void;
+    onrestore: (text: string) => void;
+    onpreview: (text: string, label: string) => void;
   }
 
-  const { entries, outline, activeIndex, activePath, onopen, onheading, onopenfolder }: Props =
-    $props();
+  const {
+    entries,
+    outline,
+    activeIndex,
+    activePath,
+    activeDocument,
+    onopen,
+    onheading,
+    onopenfolder,
+    onsearchhit,
+    onrestore,
+    onpreview,
+  }: Props = $props();
 
   let dragging = $state(false);
 
@@ -47,6 +64,12 @@
     <button class:active={ui.sidebar === 'outline'} onclick={() => (ui.sidebar = 'outline')}>
       {t('sidebar.outline')}
     </button>
+    <button class:active={ui.sidebar === 'search'} onclick={() => (ui.sidebar = 'search')}>
+      {t('sidebar.search')}
+    </button>
+    <button class:active={ui.sidebar === 'history'} onclick={() => (ui.sidebar = 'history')}>
+      {t('sidebar.history')}
+    </button>
   </div>
   <div class="content">
     {#if ui.sidebar === 'files'}
@@ -59,8 +82,17 @@
         <p class="folder" title={ui.folder}>{basename(ui.folder)}</p>
         <FileTree {entries} {activePath} {onopen} />
       {/if}
-    {:else}
+    {:else if ui.sidebar === 'outline'}
       <Outline items={outline} {activeIndex} onselect={onheading} />
+    {:else if ui.sidebar === 'search'}
+      <SearchPanel onopen={onsearchhit} {onopenfolder} />
+    {:else}
+      <HistoryPanel
+        path={activeDocument}
+        stamp={ui.historyStamp}
+        {onrestore}
+        {onpreview}
+      />
     {/if}
   </div>
   <div
@@ -95,7 +127,9 @@
 
   .panels button {
     flex: 1;
-    padding: 8px 4px;
+    min-width: 0;
+    padding: 8px 2px;
+    font-size: 0.92em;
     color: var(--text-muted);
     border-bottom: 2px solid transparent;
   }

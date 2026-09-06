@@ -74,6 +74,28 @@ export const COMMANDS: CommandEntry[] = [
   { id: 'zoomIn', labelKey: 'command.zoomIn', hint: 'Ctrl++', group: 'view', needsDocument: false },
   { id: 'zoomOut', labelKey: 'command.zoomOut', hint: 'Ctrl+-', group: 'view', needsDocument: false },
   { id: 'zoomReset', labelKey: 'command.zoomReset', hint: 'Ctrl+0', group: 'view', needsDocument: false },
+  {
+    id: 'toggleSearch',
+    labelKey: 'sidebar.search',
+    hint: 'Ctrl+Shift+F',
+    group: 'view',
+    needsDocument: false,
+  },
+  { id: 'toggleHistory', labelKey: 'sidebar.history', group: 'view', needsDocument: true },
+  { id: 'toggleFocus', labelKey: 'command.focusMode', group: 'view', needsDocument: false },
+  {
+    id: 'toggleTypewriter',
+    labelKey: 'command.typewriter',
+    group: 'view',
+    needsDocument: false,
+  },
+  { id: 'toggleSpell', labelKey: 'command.spellCheck', group: 'view', needsDocument: false },
+  {
+    id: 'formatTables',
+    labelKey: 'command.formatTables',
+    group: 'edit',
+    needsDocument: true,
+  },
   { id: 'settings', labelKey: 'menu.settings', hint: 'Ctrl+,', group: 'view', needsDocument: false },
 ];
 

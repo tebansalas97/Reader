@@ -2,6 +2,7 @@ import MarkdownIt from 'markdown-it';
 import anchor from 'markdown-it-anchor';
 import footnote from 'markdown-it-footnote';
 import taskLists from 'markdown-it-task-lists';
+import { wikiLinkPlugin } from './wiki-links';
 
 export function slugify(text: string): string {
   return text
@@ -38,6 +39,7 @@ export function createMarkdown(): InstanceType<typeof MarkdownIt> {
   md.use(taskLists, { enabled: true, label: true });
   md.use(footnote);
   md.use(anchor, { slugify, tabIndex: false });
+  md.use(wikiLinkPlugin);
   addLineNumbers(md);
   return md;
 }

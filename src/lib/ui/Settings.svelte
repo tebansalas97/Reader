@@ -95,6 +95,60 @@
       </section>
 
       <section>
+        <h3>{t('settings.writing')}</h3>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.focusMode}
+            onchange={(e) => prefs.update({ focusMode: e.currentTarget.checked })}
+          />
+          <span>{t('settings.focusMode')}</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.typewriter}
+            onchange={(e) => prefs.update({ typewriter: e.currentTarget.checked })}
+          />
+          <span>{t('settings.typewriter')}</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.spellCheck}
+            onchange={(e) => prefs.update({ spellCheck: e.currentTarget.checked })}
+          />
+          <span>{t('settings.spellCheck')}</span>
+        </label>
+        <label>
+          <span>{t('settings.spellLanguage')}</span>
+          <select
+            value={prefs.current.spellLanguage}
+            onchange={(e) => prefs.update({ spellLanguage: e.currentTarget.value as 'es' })}
+          >
+            <option value="es">Español</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.formatTablesOnSave}
+            onchange={(e) => prefs.update({ formatTablesOnSave: e.currentTarget.checked })}
+          />
+          <span>{t('settings.formatTables')}</span>
+        </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.localHistory}
+            onchange={(e) => prefs.update({ localHistory: e.currentTarget.checked })}
+          />
+          <span>{t('settings.localHistory')}</span>
+        </label>
+      </section>
+
+      <section>
         <h3>{t('settings.editor')}</h3>
         <label>
           <span>{t('settings.fontSize')}</span>

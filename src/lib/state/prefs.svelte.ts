@@ -18,6 +18,13 @@ export interface Prefs {
   scrollSync: boolean;
   showToolbar: boolean;
   highlightActiveBlock: boolean;
+  focusMode: boolean;
+  typewriter: boolean;
+  spellCheck: boolean;
+  spellLanguage: 'es' | 'en';
+  formatTablesOnSave: boolean;
+  localHistory: boolean;
+  personalDictionary: string[];
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -38,6 +45,13 @@ export const DEFAULT_PREFS: Prefs = {
   scrollSync: true,
   showToolbar: true,
   highlightActiveBlock: true,
+  focusMode: false,
+  typewriter: false,
+  spellCheck: false,
+  spellLanguage: 'es',
+  formatTablesOnSave: true,
+  localHistory: true,
+  personalDictionary: [],
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -80,6 +94,15 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     scrollSync: bool(stored.scrollSync, d.scrollSync),
     showToolbar: bool(stored.showToolbar, d.showToolbar),
     highlightActiveBlock: bool(stored.highlightActiveBlock, d.highlightActiveBlock),
+    focusMode: bool(stored.focusMode, d.focusMode),
+    typewriter: bool(stored.typewriter, d.typewriter),
+    spellCheck: bool(stored.spellCheck, d.spellCheck),
+    spellLanguage: oneOf(stored.spellLanguage, ['es', 'en'] as const, d.spellLanguage),
+    formatTablesOnSave: bool(stored.formatTablesOnSave, d.formatTablesOnSave),
+    localHistory: bool(stored.localHistory, d.localHistory),
+    personalDictionary: Array.isArray(stored.personalDictionary)
+      ? stored.personalDictionary.filter((w): w is string => typeof w === 'string')
+      : [],
   };
 }
 

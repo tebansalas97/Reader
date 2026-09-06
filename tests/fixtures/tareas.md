@@ -3,7 +3,7 @@
 Prueba de casillas marcables desde la vista previa y de resaltado preciso.
 
 - [x] Arreglar la edición para que el cursor no salte
-- [ ] Marcar y desmarcar casillas desde la vista previa
+- [x] Marcar y desmarcar casillas desde la vista previa
 - [ ] Seleccionar una palabra con doble clic
 - [ ] Seleccionar una frase con triple clic
 - [x] Resaltar solo el elemento de lista bajo el cursor

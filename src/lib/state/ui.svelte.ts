@@ -1,5 +1,5 @@
 export type ViewMode = 'editor' | 'split' | 'preview';
-export type SidebarPanel = 'files' | 'outline' | null;
+export type SidebarPanel = 'files' | 'outline' | 'search' | 'history' | null;
 
 const ORDER: ViewMode[] = ['editor', 'split', 'preview'];
 
@@ -15,6 +15,9 @@ class UiStore {
   scrollSync = $state(true);
   showToolbar = $state(true);
   diagram = $state<string | null>(null);
+  historyStamp = $state(0);
+  spellState = $state<'off' | 'loading' | 'ready' | 'failed'>('off');
+  snapshotPreview = $state<{ text: string; label: string } | null>(null);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);

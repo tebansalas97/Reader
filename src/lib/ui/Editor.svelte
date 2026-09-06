@@ -17,9 +17,19 @@
     toggleWrap,
   } from '$lib/editor/commands';
   import { createEditor, reconfigureEditor, setEditorReadOnly } from '$lib/editor/create';
+  import { applyFocusMode, centreOnCursor } from '$lib/editor/focus-mode';
+  import {
+    addPersonal,
+    ensureSpelling,
+    spellingReady,
+    suggestionsFor,
+  } from '$lib/editor/spell';
+  import { misspelledAt, refreshSpelling } from '$lib/editor/spell-extension';
+  import { formatTablesIn } from '$lib/editor/tables';
   import { toggleTaskAtLine } from '$lib/editor/selection';
   import { documents } from '$lib/state/documents.svelte';
   import { prefs, resolvedTheme } from '$lib/state/prefs.svelte';
+  import { ui } from '$lib/state/ui.svelte';
 
   interface Props {
     docId: string;
@@ -28,10 +38,27 @@
     onblock?: (start: number, end: number) => void;
     onselection?: (words: number) => void;
     onfragment?: (text: string) => void;
+    onspellfailed?: (message: string) => void;
+    onspell?: (payload: {
+      word: string;
+      suggestions: string[];
+      x: number;
+      y: number;
+      from: number;
+      to: number;
+    }) => void;
   }
 
-  const { docId, onpasteimage, onscrollline, onblock, onselection, onfragment }: Props =
-    $props();
+  const {
+    docId,
+    onpasteimage,
+    onscrollline,
+    onblock,
+    onselection,
+    onfragment,
+    onspell,
+    onspellfailed,
+  }: Props = $props();
 
   let host = $state<HTMLElement | null>(null);
   let view: EditorView | null = $state(null);
@@ -71,12 +98,30 @@
       onCursor: (line, col) => {
         documents.setCursor(docId, line, col);
         reportContext(instance, line);
+        if (prefs.current.typewriter) centreOnCursor(instance);
       },
       onScrollLine: (line) => {
         documents.setScrollLine(docId, line);
         onscrollline?.(line);
       },
       onPasteImage: onpasteimage,
+      onContextMenu: (event, instance) => {
+        if (!onspell) return false;
+        const position = instance.posAtCoords({ x: event.clientX, y: event.clientY });
+        if (position === null) return false;
+        const hit = misspelledAt(instance, position);
+        if (!hit) return false;
+        event.preventDefault();
+        onspell({
+          word: hit.word,
+          suggestions: suggestionsFor(hit.word, prefs.current.spellLanguage),
+          x: event.clientX,
+          y: event.clientY,
+          from: hit.from,
+          to: hit.to,
+        });
+        return true;
+      },
     });
     view = instance;
     instance.focus();
@@ -99,19 +144,54 @@
     void gutter;
     void tab;
     void family;
-    const instance = untrack(() => view);
-    if (instance) reconfigureEditor(instance, prefs.current, theme);
+    const instance = view;
+    if (instance) reconfigureEditor(instance, untrack(() => prefs.current), theme);
+  });
+
+  $effect(() => {
+    const enabled = prefs.current.spellCheck;
+    const language = prefs.current.spellLanguage;
+    const instance = view;
+    if (!instance) return;
+    if (!enabled) {
+      refreshSpelling(instance, { enabled: false, language });
+      ui.spellState = 'off';
+      return;
+    }
+    let cancelled = false;
+    ui.spellState = spellingReady(language) ? 'ready' : 'loading';
+    ensureSpelling(language)
+      .then(() => {
+        if (cancelled) return;
+        const current = untrack(() => view);
+        if (current) refreshSpelling(current, { enabled: true, language });
+        ui.spellState = 'ready';
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        ui.spellState = 'failed';
+        onspellfailed?.(error instanceof Error ? error.message : String(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  });
+
+  $effect(() => {
+    const enabled = prefs.current.focusMode;
+    const instance = view;
+    if (instance) applyFocusMode(instance, enabled);
   });
 
   $effect(() => {
     const readOnly = documents.byId(docId)?.readOnly ?? false;
-    const instance = untrack(() => view);
+    const instance = view;
     if (instance) setEditorReadOnly(instance, readOnly);
   });
 
   $effect(() => {
     const text = documents.byId(docId)?.text;
-    const instance = untrack(() => view);
+    const instance = view;
     if (instance === null || text === undefined) return;
     if (text === instance.state.doc.toString()) return;
     const previous = instance.state.selection.main;
@@ -158,6 +238,40 @@
       scrollIntoView: true,
     });
     instance.focus();
+  }
+
+  export function replaceRange(from: number, to: number, text: string): void {
+    const instance = view;
+    if (!instance) return;
+    instance.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from + text.length },
+    });
+    instance.focus();
+  }
+
+  export function learnWord(word: string): void {
+    addPersonal(word);
+    const instance = view;
+    if (!instance) return;
+    refreshSpelling(instance, {
+      enabled: prefs.current.spellCheck,
+      language: prefs.current.spellLanguage,
+    });
+  }
+
+  export function tidyTables(): string | null {
+    const instance = view;
+    if (!instance) return null;
+    const current = instance.state.doc.toString();
+    const tidy = formatTablesIn(current);
+    if (tidy === current) return null;
+    const selection = instance.state.selection.main;
+    instance.dispatch({
+      changes: { from: 0, to: instance.state.doc.length, insert: tidy },
+      selection: { anchor: Math.min(selection.anchor, tidy.length) },
+    });
+    return tidy;
   }
 
   export function toggleTask(line: number): void {

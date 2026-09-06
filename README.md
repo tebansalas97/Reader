@@ -39,6 +39,18 @@ firma. La Fase 3, edición del contenido de un PDF.
 - Interruptor para activar o desactivar la sincronización del scroll.
 - Paleta de comandos con `Ctrl+Shift+P`.
 - Pegar desde el navegador convierte el HTML a Markdown.
+- Búsqueda en toda la carpeta abierta con `Ctrl+Shift+F`, con los resultados
+  agrupados por archivo en la barra lateral.
+- Corrector ortográfico en español e inglés, con menú de sugerencias al pulsar
+  el botón derecho y diccionario personal. El diccionario se descarga solo
+  cuando activas el corrector.
+- Modo foco, que atenúa todo lo que no es el bloque que escribes, y modo
+  máquina de escribir, que mantiene la línea activa centrada.
+- Tablas: `Tab` salta a la celda siguiente y las columnas se alinean solas al
+  guardar.
+- Enlaces entre documentos con `[[nombre]]` o `[[nombre|texto visible]]`.
+- Historial local: cada guardado deja una copia, hasta cuarenta por documento,
+  que puedes ver y restaurar desde la barra lateral.
 
 ## Requisitos para desarrollar
 
@@ -79,6 +91,7 @@ npm run tauri dev
 | `Ctrl+Shift+H` | Exportar a HTML |
 | `Ctrl+P` | Exportar a PDF |
 | `Ctrl+Shift+P` | Paleta de comandos |
+| `Ctrl+Shift+F` | Buscar en la carpeta |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar, reducir o restaurar el tamano del texto |
 | `Ctrl+,` | Preferencias |
 

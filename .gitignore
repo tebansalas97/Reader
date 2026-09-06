@@ -11,3 +11,4 @@ tests/fixtures/plain.md
 tests/fixtures/empty.md
 bash.exe.stackdump
 *.stackdump
+public/dictionaries/
