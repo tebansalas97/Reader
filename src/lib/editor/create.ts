@@ -14,6 +14,7 @@ import {
   keymap,
   lineNumbers,
 } from '@codemirror/view';
+import { createGestureTracker } from '$lib/preview/scroll-sync';
 import type { Prefs } from '$lib/state/prefs.svelte';
 import { insertLink } from './commands';
 import { readerKeymap } from './keymap';
@@ -51,10 +52,26 @@ export function createEditor(options: CreateEditorOptions): EditorView {
     }
   });
 
+  const gesture = createGestureTracker();
+
   const domHandlers = EditorView.domEventHandlers({
     scroll(_event, view) {
+      if (!gesture.isRecent()) return false;
       const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
       onScrollLine(view.state.doc.lineAt(block.from).number - 1);
+      return false;
+    },
+    wheel() {
+      gesture.note();
+      return false;
+    },
+    pointerdown() {
+      gesture.note();
+      return false;
+    },
+    keydown() {
+      gesture.note();
+      return false;
     },
     paste(event, view) {
       const data = event.clipboardData;

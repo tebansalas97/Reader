@@ -6,6 +6,7 @@
   import { renderMarkdown } from '$lib/preview/render';
   import {
     buildLineMap,
+    createGestureTracker,
     lineForPreviewTop,
     previewTopForLine,
     type LineAnchor,
@@ -29,6 +30,7 @@
   let anchors: LineAnchor[] = [];
   let frame = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  const gesture = createGestureTracker();
 
   function apply(text: string, path: string | null, theme: 'light' | 'dark'): void {
     const node = content;
@@ -61,6 +63,24 @@
   });
 
   $effect(() => {
+    const node = content;
+    const outer = scroller;
+    if (!node || !outer) return;
+    const onClick = (event: MouseEvent) => {
+      handlePreviewClick(event, documents.byId(docId)?.path ?? null, onopen);
+    };
+    const note = () => gesture.note();
+    node.addEventListener('click', onClick);
+    outer.addEventListener('pointerdown', note);
+    outer.addEventListener('keydown', note);
+    return () => {
+      node.removeEventListener('click', onClick);
+      outer.removeEventListener('pointerdown', note);
+      outer.removeEventListener('keydown', note);
+    };
+  });
+
+  $effect(() => {
     return () => {
       if (timer) clearTimeout(timer);
       cancelAnimationFrame(frame);
@@ -81,6 +101,7 @@
   }
 
   function onScroll(): void {
+    if (!gesture.isRecent()) return;
     onscrollline?.(topLine());
   }
 
@@ -92,19 +113,14 @@
   class:reading={ui.viewMode === 'preview'}
   bind:this={scroller}
   onscroll={onScroll}
+  onwheel={gesture.note}
   style="--preview-font: {prefs.current.previewFont}; --preview-size: {prefs.current
     .previewFontSize}px; --preview-width: {prefs.current.previewWidth}px"
 >
   {#if disabled}
     <p class="disabled">{t('error.tooLarge')}</p>
   {/if}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div
-    class="content markdown-body"
-    bind:this={content}
-    onclick={(event) => handlePreviewClick(event, documents.byId(docId)?.path ?? null, onopen)}
-  ></div>
+  <div class="content markdown-body" bind:this={content}></div>
 </div>
 
 <style>

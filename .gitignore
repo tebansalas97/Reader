@@ -6,4 +6,6 @@ src-tauri/gen/
 *.log
 .DS_Store
 Thumbs.db
-tests/fixtures/*.md
+tests/fixtures/perf-*.md
+tests/fixtures/plain.md
+tests/fixtures/empty.md

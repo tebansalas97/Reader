@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildLineMap,
+  createGestureTracker,
   createSyncGuard,
   lineForPreviewTop,
   previewTopForLine,
@@ -114,5 +115,27 @@ describe('createSyncGuard', () => {
     guard.claim('editor');
     guard.release();
     expect(guard.claim('preview')).toBe(true);
+  });
+});
+
+describe('createGestureTracker', () => {
+  it('reports no recent gesture before anything happens', () => {
+    expect(createGestureTracker().isRecent()).toBe(false);
+  });
+
+  it('reports a recent gesture right after one is noted', () => {
+    const tracker = createGestureTracker();
+    tracker.note();
+    expect(tracker.isRecent()).toBe(true);
+  });
+
+  it('stops reporting once the window has passed', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const tracker = createGestureTracker(400);
+    tracker.note();
+    vi.setSystemTime(500);
+    expect(tracker.isRecent()).toBe(false);
+    vi.useRealTimers();
   });
 });

@@ -29,7 +29,7 @@ Son requisitos, no aspiraciones. Se miden al final de la fase y quedan registrad
 |---|---|
 | Arranque en frío hasta primer pintado | < 400 ms |
 | Arranque hasta documento visible (archivo de 100 KB) | < 600 ms |
-| RAM en reposo con un documento abierto | < 70 MB (proceso principal + WebView) |
+| RAM en reposo con un documento abierto | < 200 MB de memoria privada con un documento vacío, y menos de 120 MB adicionales con uno de 100 KB. Revisado el 2026-09-06: el presupuesto original de 70 MB era inalcanzable porque WebView2 tiene un suelo de 188 MB. Ver `docs/perf.md` |
 | Instalador | < 15 MB |
 | Abrir un `.md` de 5 MB | < 800 ms hasta editable |
 | Latencia tecla → vista previa (doc < 200 KB) | < 32 ms percibidos (un frame y medio) |

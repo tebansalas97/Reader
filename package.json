@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "tauri": "tauri",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:app": "tauri build",
+    "perf": "powershell -ExecutionPolicy Bypass -File scripts/perf.ps1"
   },
   "keywords": [],
   "author": "",

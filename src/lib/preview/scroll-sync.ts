@@ -82,3 +82,20 @@ export function createSyncGuard(quietMs = 120): SyncGuard {
     release,
   };
 }
+
+export interface GestureTracker {
+  note(): void;
+  isRecent(): boolean;
+}
+
+export function createGestureTracker(windowMs = 400): GestureTracker {
+  let last = 0;
+  return {
+    note() {
+      last = Date.now();
+    },
+    isRecent() {
+      return Date.now() - last < windowMs;
+    },
+  };
+}
