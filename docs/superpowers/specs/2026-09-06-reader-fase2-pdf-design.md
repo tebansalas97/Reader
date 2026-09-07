@@ -1,0 +1,293 @@
+# Reader — Fase 2: PDF
+
+Fecha: 2026-09-06
+Estado: aprobado por Esteban (motor en JavaScript, anotaciones dentro del PDF, anotar antes que organizar)
+
+## 1. Objetivo
+
+Añadir PDF a Reader sin perder lo que la hace buena: instalador pequeño, arranque
+rápido y una interfaz que no estorba. Quien solo use Markdown no debe pagar nada
+por esto.
+
+Criterio de éxito: abrir un PDF de doscientas páginas y estar leyendo en menos de
+un segundo y medio, subrayar una frase, guardarla, y que ese subrayado se vea
+igual en Acrobat, en Edge y en el visor de Windows.
+
+## 2. Decisiones ya tomadas
+
+| Decisión | Elección | Motivo |
+| --- | --- | --- |
+| Motor de lectura | pdf.js | Es el visor de Firefox, da capa de texto y no añade peso nativo |
+| Motor de escritura | pdf-lib | Escribe anotaciones, páginas y formularios en JavaScript puro |
+| Carga | Bajo demanda | Igual que KaTeX y Mermaid: un documento Markdown no descarga nada |
+| Anotaciones | Dentro del archivo | Se ven en cualquier visor; el precio es que guardar modifica el PDF |
+| Orden | Visor, anotar, páginas, formularios | Anotar es lo que más se usa al leer |
+| Edición de contenido | Fase 3 | Ver la sección 9 sobre su alcance real |
+
+## 3. Lo que esta fase no promete
+
+Un PDF no guarda párrafos, guarda instrucciones de dibujo. Por eso esta fase no
+incluye reescribir el texto existente. Se aborda en la Fase 3 con un alcance
+honesto: sustituir un bloque corto conservando su fuente y su caja, y avisar
+cuando el cambio no cabe o la fuente no está incrustada.
+
+Tampoco entra en esta fase el reconocimiento óptico de documentos escaneados.
+
+## 4. Presupuestos
+
+| Métrica | Presupuesto |
+| --- | --- |
+| Crecimiento del instalador | menos de 3 MB |
+| Arranque de la app sin abrir un PDF | sin cambio medible respecto a la Fase 1 |
+| Abrir un PDF de 200 páginas hasta ver la primera | < 1500 ms |
+| Pasar de página en un documento ya abierto | < 120 ms |
+| Scroll continuo | 60 fps |
+| Memoria privada adicional con un PDF de 200 páginas abierto | < 250 MB |
+| Guardar un PDF de 20 MB con anotaciones | < 2000 ms |
+
+Reglas derivadas:
+
+- `pdfjs-dist` y `pdf-lib` se cargan con `import()` dinámico. El chunk de entrada
+  no puede crecer; se verifica en la compilación igual que con Mermaid.
+- Solo se renderizan las páginas visibles más dos por cada lado. Las demás se
+  reservan con un hueco del alto correcto para que la barra de scroll no salte.
+- Los lienzos de páginas que salen de la ventana se liberan.
+- El archivo no se pasa por el puente de procesos. pdf.js lo lee por el
+  protocolo `asset://`, que ya está en uso para las imágenes de Markdown.
+
+## 5. Arquitectura
+
+### 5.1 El modelo de documento se convierte en una unión
+
+Hoy `Document` asume Markdown. Se separa en dos formas con un discriminante, que
+es la única manera de que el resto del código no acumule campos opcionales sin
+sentido.
+
+```ts
+interface BaseDocument {
+  id: string;
+  path: string | null;
+  title: string;
+  modifiedMs: number;
+  readOnly: boolean;
+  externalChange: 'none' | 'modified' | 'removed';
+}
+
+interface MarkdownDocument extends BaseDocument {
+  kind: 'markdown';
+  text: string;
+  savedText: string;
+  lineEnding: LineEnding;
+  previewDisabled: boolean;
+  cursor: { line: number; col: number };
+  scrollLine: number;
+}
+
+interface PdfDocument extends BaseDocument {
+  kind: 'pdf';
+  assetUrl: string;
+  pageCount: number;
+  page: number;
+  zoom: number | 'fit-width' | 'fit-page';
+  annotations: Annotation[];
+  savedAnnotations: Annotation[];
+  encrypted: boolean;
+}
+
+type Document = MarkdownDocument | PdfDocument;
+```
+
+`isDirty` deja de comparar solo texto: para Markdown compara `text` con
+`savedText`, para PDF compara la lista de anotaciones con la guardada. Todo el
+código que hoy lee `doc.text` pasa por una guarda de tipo.
+
+### 5.2 Estructura de archivos nueva
+
+```
+src/lib/pdf/
+  load.ts            carga perezosa de pdfjs y configuración del worker
+  document.ts        abrir un PDF, contar páginas, leer el índice
+  render.ts          renderizar una página a un lienzo con su escala
+  text-layer.ts      capa de texto para selección y búsqueda
+  virtual.ts         qué páginas hay que tener vivas dadas la ventana y el scroll
+  annotations/
+    model.ts         tipos, identidad, comparación e igualdad
+    geometry.ts      conversión entre coordenadas de pantalla y de PDF
+    quads.ts         rectángulos de una selección de texto para subrayados
+    read.ts          leer las anotaciones existentes de un PDF
+    write.ts         escribirlas con pdf-lib, con flujo de apariencia
+  search.ts          buscar en el texto de todas las páginas
+src/lib/ui/pdf/
+  PdfView.svelte     contenedor con scroll y virtualización
+  PdfPage.svelte     una página: lienzo, capa de texto, capa de anotaciones
+  PdfToolbar.svelte  zoom, navegación, herramientas de anotación
+  PdfThumbnails.svelte
+  PdfOutline.svelte
+  AnnotationLayer.svelte
+  AnnotationPopover.svelte
+```
+
+### 5.3 Flujo de apertura
+
+1. El usuario abre un `.pdf`. `documents.open` detecta la extensión.
+2. Se autoriza la carpeta en el protocolo de assets, igual que con las imágenes.
+3. `import('pdfjs-dist')` la primera vez. El worker se sirve como archivo
+   estático desde `public/`, igual que los diccionarios.
+4. `getDocument({ url })` con el `asset://` del archivo. Nada de bytes por IPC.
+5. Se leen el número de páginas, los tamaños y el índice.
+6. Se pinta la primera página y se reservan huecos para el resto.
+
+Si el PDF está cifrado con contraseña de apertura, se pide la contraseña. Si está
+cifrado de forma que pdf-lib no pueda reescribirlo, se abre en solo lectura con
+aviso: se puede leer y anotar en pantalla, pero no guardar.
+
+### 5.4 Virtualización
+
+`virtual.ts` es una función pura: dado el alto de cada página, el scroll y el
+alto de la ventana, devuelve qué páginas están visibles y cuáles deben estar
+renderizadas. El componente solo obedece. Así se puede probar sin navegador.
+
+```ts
+function visibleRange(heights: number[], scrollTop: number, viewport: number, overscan: number)
+  : { first: number; last: number; offsets: number[] }
+```
+
+### 5.5 Modelo de anotación
+
+```ts
+type AnnotationKind = 'highlight' | 'underline' | 'strikeout' | 'ink' | 'note' | 'rect' | 'ellipse';
+
+interface Annotation {
+  id: string;
+  page: number;
+  kind: AnnotationKind;
+  color: string;
+  opacity: number;
+  contents: string;
+  author: string;
+  createdMs: number;
+  quads?: Quad[];
+  ink?: Point[][];
+  rect?: Rect;
+  origin: 'reader' | 'file';
+}
+```
+
+Las coordenadas se guardan siempre en el espacio del PDF, con el origen abajo a
+la izquierda y sin rotación aplicada. `geometry.ts` traduce en los dos sentidos.
+Guardar coordenadas de pantalla sería un error: cambiarían con el zoom.
+
+`origin` distingue lo que ya venía en el archivo de lo que ha puesto Reader. Las
+del archivo que Reader no entiende se conservan intactas al guardar.
+
+### 5.6 Escritura
+
+Al guardar, `write.ts` carga los bytes originales con pdf-lib, borra las
+anotaciones que Reader había escrito antes y vuelve a escribir la lista actual.
+Cada anotación se escribe como un diccionario PDF real con su subtipo, y con un
+flujo de apariencia propio para que se vea igual en visores que no generan
+apariencias.
+
+| Tipo | Subtipo PDF | Geometría |
+| --- | --- | --- |
+| Resaltado | `/Highlight` | `/QuadPoints` |
+| Subrayado | `/Underline` | `/QuadPoints` |
+| Tachado | `/StrikeOut` | `/QuadPoints` |
+| Dibujo | `/Ink` | `/InkList` |
+| Nota | `/Text` | `/Rect` |
+| Rectángulo | `/Square` | `/Rect` |
+| Elipse | `/Circle` | `/Rect` |
+
+Escritura atómica: se escribe a un temporal y se renombra, como ya hace el
+guardado de Markdown. El comando `write_bytes` de Rust pasa a ser atómico, que
+hoy no lo es.
+
+### 5.7 Selección de texto y subrayado
+
+pdf.js entrega, por página, los elementos de texto con su posición. La capa de
+texto los coloca transparentes sobre el lienzo para que el navegador maneje la
+selección nativa. Al soltar el ratón con una herramienta de resaltado activa, se
+convierte la selección en rectángulos por línea y de ahí a `QuadPoints`.
+
+### 5.8 Búsqueda
+
+`Ctrl+F` dentro de un PDF busca en el texto de todas las páginas, no solo en las
+visibles. El texto de cada página se extrae una vez y se guarda. Los resultados
+se listan en la barra lateral, igual que la búsqueda en carpeta, y saltan a la
+página con el hallazgo resaltado.
+
+### 5.9 Interfaz
+
+El PDF reutiliza las pestañas, la barra de título, la barra de estado y la barra
+lateral. Cambia el centro y la barra de herramientas.
+
+- **Barra de herramientas del PDF**: página actual y total, anterior y siguiente,
+  zoom con ajustar al ancho y a la página, rotar la vista, y las herramientas de
+  anotación con su selector de color.
+- **Barra lateral**: se añaden dos pestañas cuando el documento activo es un PDF,
+  miniaturas e índice. Las de archivos, buscar e historial siguen funcionando.
+- **Barra de estado**: página actual de total, tamaño del documento, y el
+  indicador de guardado que ya existe.
+- **Modo lectura**: `Ctrl+E` alterna entre página única y desplazamiento
+  continuo. El modo zen esconde todo igual que ahora.
+
+Las herramientas de anotación se activan y se quedan activas hasta que se
+desactivan, para poder subrayar varias frases seguidas sin volver a la barra.
+
+### 5.10 Historial y cambios externos
+
+El historial local guarda también los PDF, pero solo la lista de anotaciones en
+JSON, no el archivo entero: guardar cuarenta copias de un PDF de 20 MB llenaría
+el disco. Restaurar una versión repone las anotaciones de ese momento.
+
+La detección de cambios externos funciona igual. Si el PDF cambia en disco y no
+hay anotaciones sin guardar, se recarga; si las hay, se pregunta.
+
+## 6. Errores
+
+- PDF dañado o que no es un PDF: aviso claro y no se abre la pestaña.
+- PDF cifrado con contraseña: se pide; tres intentos y se abandona.
+- PDF que pdf-lib no puede reescribir: se abre en solo lectura con el motivo.
+- Fallo al guardar: la anotación no se pierde, se ofrece guardar como.
+- Página que no se puede renderizar: se muestra el hueco con el número de página
+  y un aviso, y el resto del documento sigue funcionando.
+
+## 7. Seguridad
+
+- pdf.js se configura sin ejecutar JavaScript incrustado en el PDF, que es un
+  vector de ataque conocido. Los formularios se rellenan sin ejecutar sus
+  acciones.
+- Los enlaces dentro del PDF pasan por la misma comprobación de esquema que los
+  de Markdown: solo `http`, `https` y `mailto` salen al navegador.
+- El worker de pdf.js se sirve desde el propio origen; la política de contenido
+  necesita `worker-src 'self' blob:`.
+
+## 8. Pruebas
+
+- **Puras (Vitest)**: virtualización, geometría entre pantalla y PDF, conversión
+  de selección a `QuadPoints`, modelo e igualdad de anotaciones, comparación para
+  saber si hay cambios sin guardar, búsqueda sobre texto extraído.
+- **Contra archivos reales**: se generan PDF de prueba con pdf-lib en el propio
+  test, se escriben anotaciones, se vuelven a leer con pdf.js y se comprueba que
+  coinciden. Este es el test que de verdad prueba la portabilidad.
+- **Componentes**: la barra de herramientas del PDF, las miniaturas, el índice.
+- **Rust**: escritura atómica de bytes.
+- **Manual**: abrir el PDF anotado en Acrobat y en Edge y comprobar que se ve
+  igual. Esto no se puede automatizar aquí y va en la lista de comprobación.
+
+## 9. Fase 3, para que conste
+
+Editar el texto existente. Alcance realista: seleccionar un fragmento de una
+línea, escribir otro, y que Reader lo sustituya conservando fuente, tamaño y
+color, ajustando el espaciado dentro de la misma caja. Si el texto nuevo no cabe,
+si la fuente no está incrustada o si no tiene los caracteres necesarios, se avisa
+y no se toca el archivo. Nada de reflujo entre líneas ni entre páginas.
+
+## 10. Riesgos
+
+| Riesgo | Mitigación |
+| --- | --- |
+| pdf-lib reescribe el archivo entero y puede romper PDF raros | Antes de sobrescribir, se vuelve a abrir el resultado con pdf.js y se comprueba que tiene las mismas páginas; si no, se aborta y se avisa |
+| El chunk de pdf.js acaba en el arranque | Se comprueba en cada compilación que no está en el chunk de entrada |
+| Documentos escaneados de muchas páginas van lentos | Está previsto añadir renderizado nativo solo para el lienzo sin tocar el resto |
+| La unión de tipos toca mucho código existente | Se hace primero, en su propia tarea, con las 508 pruebas actuales como red |
