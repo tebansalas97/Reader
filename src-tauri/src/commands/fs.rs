@@ -106,14 +106,30 @@ pub async fn read_bytes(path: String) -> AppResult<Vec<u8>> {
     .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))?
 }
 
+pub fn write_bytes_sync(path: &str, bytes: &[u8]) -> AppResult<u64> {
+    let p = validate(path)?;
+    let dir = p
+        .parent()
+        .filter(|d| !d.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let mut tmp = tempfile::Builder::new()
+        .prefix(".reader-")
+        .suffix(".tmp")
+        .tempfile_in(&dir)
+        .map_err(|e| AppError::from_io(e, path))?;
+    tmp.write_all(bytes).map_err(|e| AppError::from_io(e, path))?;
+    tmp.flush().map_err(|e| AppError::from_io(e, path))?;
+    tmp.persist(&p)
+        .map_err(|e| AppError::from_io(e.error, path))?;
+    Ok(modified_ms_of(&p))
+}
+
 #[tauri::command]
-pub async fn write_bytes(path: String, bytes: Vec<u8>) -> AppResult<()> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let p = validate(&path)?;
-        fs::write(&p, &bytes).map_err(|e| AppError::from_io(e, &path))
-    })
-    .await
-    .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))?
+pub async fn write_bytes(path: String, bytes: Vec<u8>) -> AppResult<u64> {
+    tauri::async_runtime::spawn_blocking(move || write_bytes_sync(&path, &bytes))
+        .await
+        .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))?
 }
 
 #[tauri::command]
@@ -215,6 +231,42 @@ mod tests {
         fs::write(&p, "viejo y mas largo").unwrap();
         write_text_sync(p.to_str().unwrap(), "nuevo", LineEnding::Lf).unwrap();
         assert_eq!(fs::read_to_string(&p).unwrap(), "nuevo");
+    }
+
+    #[test]
+    fn writes_bytes_and_leaves_no_temp() {
+        let dir = tmp();
+        let p = dir.path().join("a.pdf");
+        write_bytes_sync(p.to_str().unwrap(), &[1, 2, 3, 4]).unwrap();
+        assert_eq!(fs::read(&p).unwrap(), vec![1, 2, 3, 4]);
+        let names: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names.len(), 1);
+    }
+
+    #[test]
+    fn writing_bytes_replaces_a_longer_file_whole() {
+        let dir = tmp();
+        let p = dir.path().join("a.pdf");
+        fs::write(&p, vec![9u8; 500]).unwrap();
+        write_bytes_sync(p.to_str().unwrap(), &[1, 2]).unwrap();
+        assert_eq!(fs::read(&p).unwrap(), vec![1, 2]);
+    }
+
+    #[test]
+    fn writing_bytes_returns_the_new_timestamp() {
+        let dir = tmp();
+        let p = dir.path().join("a.pdf");
+        let stamp = write_bytes_sync(p.to_str().unwrap(), &[1]).unwrap();
+        assert!(stamp > 0);
+    }
+
+    #[test]
+    fn writing_bytes_to_an_empty_path_is_invalid() {
+        let e = write_bytes_sync("", &[1]).unwrap_err();
+        assert_eq!(e.kind, ErrorKind::InvalidPath);
     }
 
     #[test]

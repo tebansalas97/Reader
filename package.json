@@ -13,9 +13,9 @@
     "test": "vitest run",
     "build:app": "tauri build",
     "perf": "powershell -ExecutionPolicy Bypass -File scripts/perf.ps1",
-    "predev": "node scripts/sync-dictionaries.mjs",
-    "prebuild": "node scripts/sync-dictionaries.mjs",
-    "pretest": "node scripts/sync-dictionaries.mjs"
+    "predev": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
+    "prebuild": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
+    "pretest": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs"
   },
   "keywords": [],
   "author": "",
@@ -63,6 +63,8 @@
     "markdown-it-task-lists": "^2.1.1",
     "mermaid": "^11.17.2",
     "morphdom": "^2.7.8",
-    "nspell": "^2.1.5"
+    "nspell": "^2.1.5",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.149"
   }
 }
