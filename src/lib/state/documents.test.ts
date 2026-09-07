@@ -18,7 +18,7 @@ vi.mock('$lib/fs/api', () => ({
   exists: vi.fn(async (p: string) => files.has(p)),
 }));
 
-const { documents } = await import('./documents.svelte');
+const { documents, kindForPath } = await import('./documents.svelte');
 const api = await import('$lib/fs/api');
 
 beforeEach(() => {
@@ -33,13 +33,13 @@ describe('open', () => {
     const id = await documents.open('C:/d/a.md');
     expect(documents.list).toHaveLength(1);
     expect(documents.activeId).toBe(id);
-    expect(documents.active?.text).toBe('# hola');
+    expect(documents.activeMarkdown?.text).toBe('# hola');
   });
 
   it('uses the file name as the title', async () => {
     files.set('C:/d/a.md', '');
     await documents.open('C:/d/a.md');
-    expect(documents.active?.title).toBe('a.md');
+    expect(documents.activeMarkdown?.title).toBe('a.md');
   });
 
   it('focuses the existing tab instead of opening a duplicate', async () => {
@@ -70,7 +70,7 @@ describe('open', () => {
   it('disables the preview for a very large file', async () => {
     files.set('C:/d/big.md', 'x'.repeat(21 * 1024 * 1024));
     await documents.open('C:/d/big.md');
-    expect(documents.active?.previewDisabled).toBe(true);
+    expect(documents.activeMarkdown?.previewDisabled).toBe(true);
   });
 });
 
@@ -125,8 +125,8 @@ describe('dirty tracking', () => {
 describe('create and saveAs', () => {
   it('creates an untitled document with no path', () => {
     const id = documents.create();
-    expect(documents.byId(id)?.path).toBeNull();
-    expect(documents.byId(id)?.title).toBe('Sin título');
+    expect(documents.markdownById(id)?.path).toBeNull();
+    expect(documents.markdownById(id)?.title).toBe('Sin título');
   });
 
   it('save on an untitled document reports that a path is needed', async () => {
@@ -139,7 +139,7 @@ describe('create and saveAs', () => {
     documents.setText(id, 'contenido');
     await documents.saveAs(id, 'C:/d/nuevo.md');
     expect(files.get('C:/d/nuevo.md')).toBe('contenido');
-    expect(documents.byId(id)?.title).toBe('nuevo.md');
+    expect(documents.markdownById(id)?.title).toBe('nuevo.md');
     expect(documents.isDirty(id)).toBe(false);
   });
 
@@ -192,8 +192,8 @@ describe('external changes', () => {
     const id = await documents.open('C:/d/a.md');
     files.set('C:/d/a.md', 'externo');
     await documents.markExternalChange(id, 'modified');
-    expect(documents.byId(id)?.text).toBe('externo');
-    expect(documents.byId(id)?.externalChange).toBe('none');
+    expect(documents.markdownById(id)?.text).toBe('externo');
+    expect(documents.markdownById(id)?.externalChange).toBe('none');
   });
 
   it('flags the conflict instead of reloading when the document is dirty', async () => {
@@ -202,8 +202,8 @@ describe('external changes', () => {
     documents.setText(id, 'mío');
     files.set('C:/d/a.md', 'externo');
     await documents.markExternalChange(id, 'modified');
-    expect(documents.byId(id)?.text).toBe('mío');
-    expect(documents.byId(id)?.externalChange).toBe('modified');
+    expect(documents.markdownById(id)?.text).toBe('mío');
+    expect(documents.markdownById(id)?.externalChange).toBe('modified');
   });
 
   it('detaches the document when the file is removed', async () => {
@@ -211,8 +211,8 @@ describe('external changes', () => {
     const id = await documents.open('C:/d/a.md');
     files.delete('C:/d/a.md');
     await documents.markExternalChange(id, 'removed');
-    expect(documents.byId(id)?.path).toBeNull();
-    expect(documents.byId(id)?.text).toBe('uno');
+    expect(documents.markdownById(id)?.path).toBeNull();
+    expect(documents.markdownById(id)?.text).toBe('uno');
     expect(documents.isDirty(id)).toBe(true);
   });
 
@@ -223,8 +223,8 @@ describe('external changes', () => {
     files.set('C:/d/a.md', 'externo');
     await documents.markExternalChange(id, 'modified');
     await documents.reload(id);
-    expect(documents.byId(id)?.text).toBe('externo');
-    expect(documents.byId(id)?.externalChange).toBe('none');
+    expect(documents.markdownById(id)?.text).toBe('externo');
+    expect(documents.markdownById(id)?.externalChange).toBe('none');
   });
 
   it('dismiss keeps my text and clears the flag', async () => {
@@ -233,8 +233,8 @@ describe('external changes', () => {
     documents.setText(id, 'mío');
     await documents.markExternalChange(id, 'modified');
     documents.dismissExternalChange(id);
-    expect(documents.byId(id)?.text).toBe('mío');
-    expect(documents.byId(id)?.externalChange).toBe('none');
+    expect(documents.markdownById(id)?.text).toBe('mío');
+    expect(documents.markdownById(id)?.externalChange).toBe('none');
   });
 });
 
@@ -244,7 +244,7 @@ describe('line endings', () => {
     const id = await documents.open('C:/d/a.md');
     documents.setLineEnding(id, 'crlf');
     expect(documents.isDirty(id)).toBe(true);
-    expect(documents.byId(id)?.lineEnding).toBe('crlf');
+    expect(documents.markdownById(id)?.lineEnding).toBe('crlf');
   });
 
   it('saving writes with the chosen line ending', async () => {
@@ -253,5 +253,140 @@ describe('line endings', () => {
     documents.setLineEnding(id, 'crlf');
     await documents.save(id);
     expect(api.writeText).toHaveBeenCalledWith('C:/d/a.md', 'uno', 'crlf');
+  });
+});
+
+describe('pdf documents', () => {
+  function info(pageCount = 3) {
+    return {
+      assetUrl: 'http://asset.localhost/C%3A/d/a.pdf',
+      pageCount,
+      annotations: [],
+      encrypted: false,
+    };
+  }
+
+  function highlight(page = 1, contents = '') {
+    return {
+      id: `h-${page}-${contents}`,
+      page,
+      kind: 'highlight' as const,
+      color: '#ffd54f',
+      opacity: 0.4,
+      contents,
+      author: 'yo',
+      createdMs: 1,
+      quads: [{ x1: 1, y1: 2, x2: 3, y2: 2, x3: 1, y3: 1, x4: 3, y4: 1 }],
+      origin: 'reader' as const,
+    };
+  }
+
+  it('opens a pdf as its own kind of document', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    expect(documents.byId(id)?.kind).toBe('pdf');
+    expect(documents.pdfById(id)?.pageCount).toBe(3);
+  });
+
+  it('uses the file name as the title', () => {
+    documents.openPdf('C:/d/informe.pdf', info());
+    expect(documents.active?.title).toBe('informe.pdf');
+  });
+
+  it('starts on the first page', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    expect(documents.pdfById(id)?.page).toBe(1);
+  });
+
+  it('focuses the existing tab instead of opening it twice', () => {
+    const first = documents.openPdf('C:/d/a.pdf', info());
+    const second = documents.openPdf('C:/d/a.pdf', info());
+    expect(second).toBe(first);
+    expect(documents.list).toHaveLength(1);
+  });
+
+  it('is clean right after opening', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
+  it('becomes dirty when an annotation is added', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setAnnotations(id, [highlight()]);
+    expect(documents.isDirty(id)).toBe(true);
+  });
+
+  it('is clean again once the annotations are saved', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setAnnotations(id, [highlight()]);
+    documents.markPdfSaved(id, 42);
+    expect(documents.isDirty(id)).toBe(false);
+    expect(documents.pdfById(id)?.modifiedMs).toBe(42);
+  });
+
+  it('becomes dirty again after editing a saved annotation', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setAnnotations(id, [highlight()]);
+    documents.markPdfSaved(id, 1);
+    documents.setAnnotations(id, [highlight(1, 'una nota')]);
+    expect(documents.isDirty(id)).toBe(true);
+  });
+
+  it('is clean when an annotation is removed and put back', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setAnnotations(id, [highlight()]);
+    documents.markPdfSaved(id, 1);
+    documents.setAnnotations(id, []);
+    documents.setAnnotations(id, [highlight()]);
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
+  it('clamps the page to the document', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info(3));
+    documents.setPage(id, 99);
+    expect(documents.pdfById(id)?.page).toBe(3);
+    documents.setPage(id, 0);
+    expect(documents.pdfById(id)?.page).toBe(1);
+  });
+
+  it('opens a protected document read only', () => {
+    const id = documents.openPdf('C:/d/a.pdf', { ...info(), encrypted: true });
+    expect(documents.pdfById(id)?.readOnly).toBe(true);
+  });
+
+  it('ignores markdown operations', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setText(id, 'no deberia entrar');
+    expect(documents.markdownById(id)).toBeNull();
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
+  it('lists a dirty pdf alongside a dirty markdown', async () => {
+    files.set('C:/d/a.md', 'uno');
+    const md = await documents.open('C:/d/a.md');
+    const pdf = documents.openPdf('C:/d/a.pdf', info());
+    documents.setText(md, 'cambiado');
+    documents.setAnnotations(pdf, [highlight()]);
+    expect(documents.dirtyDocuments).toHaveLength(2);
+  });
+
+  it('closes like any other tab', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.close(id);
+    expect(documents.list).toHaveLength(0);
+  });
+});
+
+describe('kindForPath', () => {
+  it('recognises a pdf', () => {
+    expect(kindForPath('C:/d/a.pdf')).toBe('pdf');
+  });
+
+  it('recognises it whatever the case', () => {
+    expect(kindForPath('C:/d/A.PDF')).toBe('pdf');
+  });
+
+  it('treats everything else as markdown', () => {
+    expect(kindForPath('C:/d/a.md')).toBe('markdown');
+    expect(kindForPath('C:/d/a.txt')).toBe('markdown');
   });
 });

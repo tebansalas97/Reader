@@ -22,7 +22,12 @@
   import { printPreview } from '$lib/export/print';
   import { activeOutlineIndex, extractOutline } from '$lib/preview/outline';
   import { createSyncGuard } from '$lib/preview/scroll-sync';
-  import { documents, type Document } from '$lib/state/documents.svelte';
+  import {
+    documentIsDirty,
+    documents,
+    isMarkdown,
+    type Document,
+  } from '$lib/state/documents.svelte';
   import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
   import { recent } from '$lib/state/recent.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
@@ -73,10 +78,13 @@
   } | null>(null);
 
   const active = $derived(documents.active);
-  const outline = $derived(extractOutline(active?.text ?? ''));
-  const activeHeading = $derived(activeOutlineIndex(outline, (active?.cursor.line ?? 1) - 1));
+  const activeMarkdown = $derived(isMarkdown(active) ? active : null);
+  const outline = $derived(extractOutline(activeMarkdown?.text ?? ''));
+  const activeHeading = $derived(
+    activeOutlineIndex(outline, (activeMarkdown?.cursor.line ?? 1) - 1),
+  );
   const tabs = $derived(
-    documents.list.map((d) => ({ id: d.id, title: d.title, dirty: d.text !== d.savedText })),
+    documents.list.map((d) => ({ id: d.id, title: d.title, dirty: documentIsDirty(d) })),
   );
 
   function reportError(key: string, error: unknown): void {
@@ -130,7 +138,7 @@
         const tidy = editor?.tidyTables();
         if (tidy !== null && tidy !== undefined) documents.setText(doc.id, tidy);
       }
-      if (prefs.current.localHistory && doc.path !== null) {
+      if (prefs.current.localHistory && doc.path !== null && doc.kind === 'markdown') {
         await snapshotDocument(doc.path, doc.text).catch(() => undefined);
         ui.historyStamp += 1;
       }
@@ -166,7 +174,7 @@
   function requestClose(id: string): void {
     const doc = documents.byId(id);
     if (!doc) return;
-    if (doc.text === doc.savedText) {
+    if (!documentIsDirty(doc)) {
       documents.close(id);
       return;
     }
@@ -241,7 +249,7 @@
   }
 
   async function exportHtmlFlow(): Promise<void> {
-    const doc = documents.active;
+    const doc = documents.activeMarkdown;
     if (!doc) return;
     const path = await saveDialog({
       defaultPath: `${doc.title.replace(/\.(md|markdown|txt)$/i, '')}.html`,
@@ -542,12 +550,12 @@
 
   $effect(() => {
     const doc = documents.active;
-    const dirty = doc !== null && doc.text !== doc.savedText;
+    const dirty = doc !== null && documentIsDirty(doc);
     document.title = doc ? `${dirty ? '• ' : ''}${doc.title} — Reader` : 'Reader';
   });
 
   $effect(() => {
-    const doc = documents.active;
+    const doc = documents.activeMarkdown;
     if (!doc || prefs.current.autosave !== 'afterDelay') return;
     const text = doc.text;
     if (doc.path === null || text === doc.savedText) return;
@@ -685,7 +693,7 @@
   {#if !ui.zen}
     <StatusBar
       doc={active}
-      dirty={active !== null && active.text !== active.savedText}
+      dirty={active !== null && documentIsDirty(active)}
       {saving}
       {selectedWords}
       onlineending={(value) => {

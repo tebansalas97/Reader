@@ -77,7 +77,7 @@
     const node = host;
     if (!node) return;
     const initial = untrack(() => {
-      const doc = documents.byId(docId);
+      const doc = documents.markdownById(docId);
       return {
         text: doc?.text ?? '',
         readOnly: doc?.readOnly ?? false,
@@ -184,13 +184,13 @@
   });
 
   $effect(() => {
-    const readOnly = documents.byId(docId)?.readOnly ?? false;
+    const readOnly = documents.markdownById(docId)?.readOnly ?? false;
     const instance = view;
     if (instance) setEditorReadOnly(instance, readOnly);
   });
 
   $effect(() => {
-    const text = documents.byId(docId)?.text;
+    const text = documents.markdownById(docId)?.text;
     const instance = view;
     if (instance === null || text === undefined) return;
     if (text === instance.state.doc.toString()) return;

@@ -151,7 +151,7 @@
     }
 
     if (target.closest('a')) {
-      handlePreviewClick(event, documents.byId(docId)?.path ?? null, onopen);
+      handlePreviewClick(event, documents.markdownById(docId)?.path ?? null, onopen);
       return;
     }
 
@@ -170,7 +170,7 @@
   }
 
   $effect(() => {
-    const doc = documents.byId(docId);
+    const doc = documents.markdownById(docId);
     if (!doc || doc.previewDisabled || !content) return;
     schedule(doc.text, doc.path, resolvedTheme());
   });
@@ -233,7 +233,7 @@
     onscrollline?.(topLine());
   }
 
-  const disabled = $derived(documents.byId(docId)?.previewDisabled ?? false);
+  const disabled = $derived(documents.markdownById(docId)?.previewDisabled ?? false);
 </script>
 
 <div

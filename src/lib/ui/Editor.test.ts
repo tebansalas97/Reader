@@ -79,7 +79,7 @@ describe('Editor', () => {
     const { container } = render(Editor, { docId: id });
     editorView(container)?.dispatch({ changes: { from: 0, insert: 'X' } });
     await Promise.resolve();
-    expect(documents.byId(id)?.text.startsWith('X')).toBe(true);
+    expect(documents.markdownById(id)?.text.startsWith('X')).toBe(true);
   });
 
   it('adopts an external text change without losing the editor', async () => {
