@@ -3,9 +3,10 @@
 
   interface Props {
     onaction: (action: string) => void;
+    unavailable?: string[];
   }
 
-  const { onaction }: Props = $props();
+  const { onaction, unavailable = [] }: Props = $props();
 
   let open = $state(false);
   let anchor = $state<HTMLElement | null>(null);
@@ -65,7 +66,12 @@
       {#each GROUPS as group, index (index)}
         {#if index > 0}<div class="sep"></div>{/if}
         {#each group as item (item.action)}
-          <button class="item" role="menuitem" onclick={() => choose(item.action)}>
+          <button
+            class="item"
+            role="menuitem"
+            disabled={unavailable.includes(item.action)}
+            onclick={() => choose(item.action)}
+          >
             <span>{t(item.key)}</span>
             <kbd>{item.hint}</kbd>
           </button>
@@ -81,6 +87,11 @@
     display: flex;
     align-items: center;
     padding: 0 4px 0 6px;
+  }
+
+  .item:disabled {
+    opacity: 0.4;
+    cursor: default;
   }
 
   .trigger {

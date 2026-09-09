@@ -5,7 +5,11 @@
   .toasts,
   .divider,
   .editor,
-  .notice {
+  .notice,
+  .toolbar,
+  .pdfbar,
+  .popover,
+  .palette {
     display: none !important;
   }
 
@@ -15,10 +19,38 @@
   .app,
   .body,
   main,
+  .panes,
+  .split,
+  .pane,
   .preview {
     display: block !important;
+    width: auto !important;
     height: auto !important;
+    max-height: none !important;
     overflow: visible !important;
+    flex: none !important;
+  }
+
+  .split .pane:first-child:has(.editor) {
+    display: none !important;
+  }
+
+  .printsheet {
+    display: block !important;
+  }
+
+  .printsheet img {
+    display: block;
+    width: 100%;
+    break-after: page;
+  }
+
+  .printsheet img:last-child {
+    break-after: auto;
+  }
+
+  .app.printing > .body {
+    display: none !important;
   }
 
   .preview .content {

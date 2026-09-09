@@ -216,6 +216,14 @@ describe('external changes', () => {
     expect(documents.isDirty(id)).toBe(true);
   });
 
+  it('stays attached when the file is still there after a removal event', async () => {
+    files.set('C:/d/a.md', 'uno');
+    const id = await documents.open('C:/d/a.md');
+    await documents.markExternalChange(id, 'removed');
+    expect(documents.markdownById(id)?.path).toBe('C:/d/a.md');
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
   it('reload replaces the text and clears the flag', async () => {
     files.set('C:/d/a.md', 'uno');
     const id = await documents.open('C:/d/a.md');
@@ -280,6 +288,22 @@ describe('pdf documents', () => {
       origin: 'reader' as const,
     };
   }
+
+  it('leaves a clean pdf alone when the file changes', async () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    files.set('C:/d/a.pdf', 'x');
+    await documents.markExternalChange(id, 'modified');
+    expect(documents.pdfById(id)?.path).toBe('C:/d/a.pdf');
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
+  it('keeps a pdf attached when its file was only replaced', async () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    files.set('C:/d/a.pdf', 'x');
+    await documents.markExternalChange(id, 'removed');
+    expect(documents.pdfById(id)?.path).toBe('C:/d/a.pdf');
+    expect(documents.isDirty(id)).toBe(false);
+  });
 
   it('opens a pdf as its own kind of document', () => {
     const id = documents.openPdf('C:/d/a.pdf', info());

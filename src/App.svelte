@@ -48,12 +48,14 @@
     type OutlineEntry,
     type PdfHandle,
   } from '$lib/pdf/document';
+  import { MANY_PAGES, renderForPrint } from '$lib/pdf/print';
   import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
   import Editor from '$lib/ui/Editor.svelte';
   import PdfToolbar from '$lib/ui/pdf/PdfToolbar.svelte';
+  import PrintSheet from '$lib/ui/pdf/PrintSheet.svelte';
   import PdfView from '$lib/ui/pdf/PdfView.svelte';
   import Preview from '$lib/ui/Preview.svelte';
   import Settings from '$lib/ui/Settings.svelte';
@@ -77,6 +79,7 @@
     { name: 'PDF', extensions: ['pdf'] },
   ];
   const SAVE_FILTERS = [{ name: 'Markdown', extensions: MARKDOWN_EXTENSIONS }];
+  const PDF_FILTERS = [{ name: 'PDF', extensions: ['pdf'] }];
 
   const appWindow = getCurrentWindow();
   const guard = createSyncGuard();
@@ -92,6 +95,8 @@
   let selectedWords = $state(0);
   let fragment = $state('');
   let pdfScale = $state(1);
+  let printImages = $state<string[]>([]);
+  let printing = $state(false);
   let pdfHandle = $state<PdfHandle | null>(null);
   let pdfOutline = $state<OutlineEntry[]>([]);
   let spellMenu = $state<{
@@ -182,13 +187,15 @@
     if (annotation) documents.updateAnnotation(doc.id, { ...annotation, color });
   }
 
-  async function savePdf(doc: PdfDocument): Promise<'saved' | 'cancelled'> {
-    if (doc.path === null) return 'cancelled';
+  async function savePdf(doc: PdfDocument, target?: string): Promise<'saved' | 'cancelled'> {
+    const source = doc.path;
+    if (source === null) return target ? 'cancelled' : saveAsFlow(doc);
+    const destination = target ?? source;
     saving = true;
     try {
       const current = $state.snapshot(doc.annotations) as Annotation[];
       const original = $state.snapshot(doc.savedAnnotations) as Annotation[];
-      const bytes = await readBytesRaw(doc.path);
+      const bytes = await readBytesRaw(source);
       const { writeAnnotations } = await import('$lib/pdf/annotations/write');
       const next = await writeAnnotations(bytes, current, original);
 
@@ -202,11 +209,17 @@
       }
 
       if (prefs.current.localHistory) {
-        await snapshotDocument(doc.path, JSON.stringify(current, null, 1)).catch(() => undefined);
+        await snapshotDocument(destination, JSON.stringify(current, null, 1)).catch(
+          () => undefined,
+        );
         ui.historyStamp += 1;
       }
 
-      const modifiedMs = await writeBytesRaw(doc.path, next);
+      const modifiedMs = await writeBytesRaw(destination, next);
+      if (target && target !== source) {
+        documents.attachPath(doc.id, target, modifiedMs, convertFileSrc(target));
+        await recent.load();
+      }
       documents.loadAnnotations(doc.id, fresh);
       documents.markPdfSaved(doc.id, modifiedMs);
       ui.selectedAnnotation = null;
@@ -244,15 +257,22 @@
     }
   }
 
+  function suggestedName(doc: Document): string {
+    if (doc.path !== null) return doc.path;
+    const extension = doc.kind === 'pdf' ? '.pdf' : '.md';
+    return doc.title.toLowerCase().endsWith(extension) ? doc.title : `${doc.title}${extension}`;
+  }
+
   async function saveAsFlow(target?: Document): Promise<'saved' | 'cancelled'> {
     const doc = target ?? documents.active;
     if (!doc) return 'cancelled';
     const path = await saveDialog({
-      defaultPath: doc.path ?? `${doc.title}.md`,
-      filters: SAVE_FILTERS,
+      defaultPath: suggestedName(doc),
+      filters: doc.kind === 'pdf' ? PDF_FILTERS : SAVE_FILTERS,
     }).catch(() => null);
     if (!path) return 'cancelled';
     try {
+      if (doc.kind === 'pdf') return await savePdf(doc, path);
       await documents.saveAs(doc.id, path);
       await recent.load();
       return 'saved';
@@ -341,7 +361,10 @@
 
   async function exportHtmlFlow(): Promise<void> {
     const doc = documents.activeMarkdown;
-    if (!doc) return;
+    if (!doc) {
+      if (activePdf) toasts.error(t('error.onlyMarkdown'));
+      return;
+    }
     const path = await saveDialog({
       defaultPath: `${doc.title.replace(/\.(md|markdown|txt)$/i, '')}.html`,
       filters: [{ name: 'HTML', extensions: ['html'] }],
@@ -355,7 +378,49 @@
     }
   }
 
+  async function printPdfFlow(doc: PdfDocument): Promise<void> {
+    const handle = pdfHandle;
+    if (!handle) return;
+    if (documentIsDirty(doc)) toasts.push(t('pdf.printUnsaved'));
+    if (doc.pageCount > MANY_PAGES) toasts.push(t('pdf.printing', { pages: doc.pageCount }));
+
+    const refs = doc.annotations
+      .map((annotation) => annotation.ref)
+      .filter((ref): ref is string => typeof ref === 'string');
+
+    printing = true;
+    try {
+      handle.showOnCanvas(refs);
+      printImages = await renderForPrint(handle, doc.rotation);
+      handle.hideFromCanvas(refs);
+      if (printImages.length === 0) {
+        toasts.error(t('pdf.printFailed'));
+        printing = false;
+        return;
+      }
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      window.addEventListener(
+        'afterprint',
+        () => {
+          printing = false;
+          printImages = [];
+        },
+        { once: true },
+      );
+      printPreview();
+    } catch (error) {
+      handle.hideFromCanvas(refs);
+      reportError('pdf.printFailed', error);
+      printing = false;
+      printImages = [];
+    }
+  }
+
   function printFlow(): void {
+    if (activePdf) {
+      void printPdfFlow(activePdf);
+      return;
+    }
     const previous = ui.viewMode;
     ui.viewMode = 'preview';
     requestAnimationFrame(() => {
@@ -678,7 +743,10 @@
   });
 </script>
 
-<div class="app" class:zen={ui.zen}>
+<div class="app" class:zen={ui.zen} class:printing>
+  {#if printImages.length > 0}
+    <PrintSheet images={printImages} />
+  {/if}
   {#if !ui.zen}
     <TitleBar
       items={tabs}
@@ -687,6 +755,7 @@
       onclose={requestClose}
       onaction={handleAction}
       onrequestclose={() => void requestQuit()}
+      unavailable={activePdf ? ['exportHtml'] : []}
     />
   {/if}
 

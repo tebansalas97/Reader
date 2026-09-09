@@ -13,9 +13,18 @@
     onclose: (id: string) => void;
     onaction: (action: string) => void;
     onrequestclose: () => void;
+    unavailable?: string[];
   }
 
-  const { items, activeId, onselect, onclose, onaction, onrequestclose }: Props = $props();
+  const {
+    items,
+    activeId,
+    onselect,
+    onclose,
+    onaction,
+    onrequestclose,
+    unavailable = [],
+  }: Props = $props();
 
   let maximised = $state(false);
 
@@ -40,7 +49,7 @@
 </script>
 
 <header class="titlebar" data-tauri-drag-region>
-  <Menu {onaction} />
+  <Menu {onaction} {unavailable} />
   <Tabs {items} {activeId} {onselect} {onclose} />
   <div class="spacer" data-tauri-drag-region></div>
   <div class="modes" data-tauri-drag-region>

@@ -153,3 +153,13 @@ WebView. Recorre la lista con la compilación de release instalada, no con
     verdad del archivo y no un dibujo de Reader.
 38. Abre en Reader un PDF con formulario o con sellos, anótalo y guárdalo. Lo
     que Reader no entiende sigue viéndose y sigue en el archivo.
+39. Guarda dos veces seguidas. La barra de estado se queda en «Guardado» y no
+    vuelve a «Sin guardar» sola: guardar no puede parecer un borrado del
+    archivo.
+40. `Ctrl+Shift+S` sobre un PDF ofrece guardar como `.pdf`, no como `.md`, y el
+    documento pasa a apuntar al archivo nuevo.
+41. `Ctrl+P` sobre un PDF imprime todas las páginas del documento, no lo que se
+    ve en pantalla, y con las anotaciones ya guardadas.
+42. `Ctrl+P` sobre un Markdown imprime el documento entero, sin la barra de
+    herramientas y sin cortar en la primera hoja.
+43. Exportar a HTML está en gris cuando el documento activo es un PDF.

@@ -61,6 +61,7 @@ pub fn read_text_sync(path: &str) -> AppResult<TextFile> {
 
 pub fn write_text_sync(path: &str, text: &str, line_ending: LineEnding) -> AppResult<u64> {
     let p = validate(path)?;
+    crate::commands::watcher::note_own_write(path);
     let data = match line_ending {
         LineEnding::Lf => text.to_owned(),
         LineEnding::Crlf => text.replace('\n', "\r\n"),
@@ -108,6 +109,7 @@ pub async fn read_bytes(path: String) -> AppResult<Vec<u8>> {
 
 pub fn write_bytes_sync(path: &str, bytes: &[u8]) -> AppResult<u64> {
     let p = validate(path)?;
+    crate::commands::watcher::note_own_write(path);
     let dir = p
         .parent()
         .filter(|d| !d.as_os_str().is_empty())

@@ -21,6 +21,7 @@ export interface PdfHandle {
   outline(): Promise<OutlineEntry[]>;
   page(index: number): Promise<import('pdfjs-dist').PDFPageProxy>;
   hideFromCanvas(refs: string[]): void;
+  showOnCanvas(refs: string[]): void;
   destroy(): Promise<void>;
 }
 
@@ -134,6 +135,9 @@ export async function openPdfDocument(
     },
     hideFromCanvas(refs: string[]) {
       for (const ref of refs) document.annotationStorage.setValue(ref, { noView: true });
+    },
+    showOnCanvas(refs: string[]) {
+      for (const ref of refs) document.annotationStorage.setValue(ref, { noView: false });
     },
     async destroy() {
       await document.destroy();

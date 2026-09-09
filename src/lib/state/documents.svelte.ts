@@ -1,4 +1,4 @@
-import { pushRecent, readText, unwatch, watch, writeText } from '$lib/fs/api';
+import { exists, pushRecent, readText, unwatch, watch, writeText } from '$lib/fs/api';
 import type { LineEnding } from '$lib/fs/api-types';
 import { extname, normalise, titleFromPath } from '$lib/fs/paths';
 import type { Annotation } from '$lib/pdf/annotations/model';
@@ -293,6 +293,21 @@ class DocumentsStore {
     return 'saved';
   }
 
+  attachPath(id: string, target: string, modifiedMs: number, assetUrl?: string): void {
+    const doc = this.byId(id);
+    if (!doc) return;
+    const path = normalise(target);
+    if (doc.kind === 'pdf' && assetUrl) doc.assetUrl = assetUrl;
+    const previous = doc.path;
+    doc.path = path;
+    doc.title = titleFromPath(path);
+    doc.modifiedMs = modifiedMs;
+    doc.externalChange = 'none';
+    if (previous !== null && previous !== path) void unwatch(previous).catch(() => undefined);
+    void watch(path).catch(() => undefined);
+    void pushRecent(path).catch(() => undefined);
+  }
+
   async saveAs(id: string, target: string): Promise<void> {
     const doc = this.markdownById(id);
     if (!doc) return;
@@ -324,7 +339,8 @@ class DocumentsStore {
   async markExternalChange(id: string, kind: 'modified' | 'removed'): Promise<void> {
     const doc = this.byId(id);
     if (!doc || doc.path === null) return;
-    if (kind === 'removed') {
+    const gone = kind === 'removed' && !(await exists(doc.path).catch(() => true));
+    if (gone) {
       void unwatch(doc.path).catch(() => undefined);
       doc.path = null;
       if (doc.kind === 'markdown') doc.savedText = `${doc.text} `;
@@ -332,6 +348,7 @@ class DocumentsStore {
       doc.externalChange = 'removed';
       return;
     }
+    if (doc.kind === 'pdf') return;
     if (this.isDirty(id)) {
       doc.externalChange = 'modified';
       return;
