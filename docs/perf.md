@@ -99,7 +99,7 @@ porque las páginas ya se han pedido para conocer sus tamaños. Por eso se hace
 antes del primer dibujo: así el lienzo ya sabe cuáles no debe pintar y no hay
 un parpadeo con la anotación dibujada dos veces.
 
-El instalador pasa de 3,7 MB a 4,1 MB. pdf.js y pdf-lib viven en sus propios
+El instalador pasa de 3,7 MB a 4,66 MB, casi un mega de crecimiento frente a un presupuesto de tres. pdf.js y pdf-lib viven en sus propios
 chunks (`pdf-*.js`, `es-*.js`, `write-*.js`) y no aparecen en el de entrada; se
 comprueba en cada compilación buscando `PDFDocumentLoadingTask` y `PDFHexString`
 en `dist/assets/index-*.js`.
