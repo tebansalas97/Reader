@@ -35,6 +35,7 @@ const stableGetPage = async () => page() as never;
 function props(overrides: Record<string, unknown> = {}) {
   return {
     index: 0,
+    page: 1,
     size: SIZE,
     scale: 1,
     rotation: 0,

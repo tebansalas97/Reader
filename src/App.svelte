@@ -49,7 +49,16 @@
     type OutlineEntry,
     type PdfHandle,
   } from '$lib/pdf/document';
+  import {
+    annotationsOnLostPages,
+    movePages,
+    withoutLostPages,
+    removePages,
+    sourcesOf,
+    turnPages,
+  } from '$lib/pdf/pages';
   import { MANY_PAGES, renderForPrint } from '$lib/pdf/print';
+  import { buildSavedPdf, extractPages } from '$lib/pdf/save';
   import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
@@ -90,6 +99,7 @@
   let entries = $state<Entry[]>([]);
   let saving = $state(false);
   let pending = $state<{ doc: Document; then: 'close' | 'quit' } | null>(null);
+  let pendingPages = $state<{ indices: number[]; lost: number } | null>(null);
   let quitQueue: Document[] = [];
   let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
   let activeBlock = $state<{ start: number; end: number } | null>(null);
@@ -196,13 +206,21 @@
     try {
       const current = $state.snapshot(doc.annotations) as Annotation[];
       const original = $state.snapshot(doc.savedAnnotations) as Annotation[];
+      const pages = $state.snapshot(doc.pages) as PdfDocument['pages'];
+      const savedPages = $state.snapshot(doc.savedPages) as PdfDocument['pages'];
       const bytes = await readBytesRaw(source);
-      const { writeAnnotations } = await import('$lib/pdf/annotations/write');
-      const next = await writeAnnotations(bytes, current, original);
+      const next = await buildSavedPdf({
+        bytes,
+        pages,
+        savedPages,
+        annotations: current,
+        savedAnnotations: original,
+      });
 
+      const kept = withoutLostPages(current, pages);
       const check = await openPdfDocument(next);
       const fresh = await readAnnotations(check).catch(() => []);
-      const sound = check.pageCount === doc.pageCount && fresh.length === current.length;
+      const sound = check.pageCount === pages.length && fresh.length === kept.length;
       await check.destroy().catch(() => undefined);
       if (!sound) {
         toasts.error(t('pdf.verifyFailed'));
@@ -376,6 +394,51 @@
       toasts.push(basename(path));
     } catch (error) {
       reportError('error.exportFailed', error);
+    }
+  }
+
+  function movePlan(plan: PdfDocument['pages']): void {
+    const doc = activePdf;
+    if (!doc) return;
+    documents.setPages(doc.id, plan);
+    ui.selectedPages = [];
+  }
+
+  function askRemovePages(indices: number[]): void {
+    const doc = activePdf;
+    if (!doc || indices.length === 0) return;
+    const plan = removePages(doc.pages, indices);
+    if (plan === doc.pages) return;
+    const lost = annotationsOnLostPages(doc.annotations, plan).length;
+    if (lost > 0) {
+      pendingPages = { indices, lost };
+      return;
+    }
+    movePlan(plan);
+  }
+
+  async function extractFlow(indices: number[]): Promise<void> {
+    const doc = activePdf;
+    if (!doc || doc.path === null || indices.length === 0) return;
+
+    const sources = sourcesOf(doc.pages.filter((_, index) => indices.includes(index)));
+    const suggestion = doc.path.replace(/\.pdf$/i, '') + `-paginas.pdf`;
+    const target = await saveDialog({ defaultPath: suggestion, filters: PDF_FILTERS }).catch(
+      () => null,
+    );
+    if (!target) return;
+
+    saving = true;
+    try {
+      const bytes = await readBytesRaw(doc.path);
+      const written = await extractPages(bytes, sources);
+      await writeBytesRaw(target, written);
+      await recent.load();
+      toasts.push(t('pages.extracted', { n: sources.length, name: basename(target) }));
+    } catch (error) {
+      reportError('error.saveFailed', error);
+    } finally {
+      saving = false;
     }
   }
 
@@ -800,6 +863,14 @@
               onpage: (page) => documents.setPage(activePdf.id, page),
               annotations: activePdf.annotations,
               selectedAnnotation: ui.selectedAnnotation,
+              plan: activePdf.pages,
+              selectedPages: ui.selectedPages,
+              onpageselection: (indices) => (ui.selectedPages = indices),
+              onpagemove: (indices, to) => movePlan(movePages(activePdf.pages, indices, to)),
+              onpageturn: (indices, quarters) =>
+                documents.setPages(activePdf.id, turnPages(activePdf.pages, indices, quarters)),
+              onpageremove: (indices) => askRemovePages(indices),
+              onpageextract: (indices) => void extractFlow(indices),
               onselectannotation: (id, page) => {
                 documents.setPage(activePdf.id, page);
                 ui.selectedAnnotation = id;
@@ -949,6 +1020,24 @@
       { id: 'cancel', label: t('dialog.cancel') },
     ]}
     onchoose={(choice) => void resolvePending(choice)}
+  />
+{/if}
+
+{#if pendingPages !== null && activePdf}
+  <Dialog
+    title={t('pages.removeTitle')}
+    body={t('pages.losesAnnotations', { n: pendingPages.lost })}
+    choices={[
+      { id: 'remove', label: t('pages.remove'), tone: 'danger' },
+      { id: 'cancel', label: t('dialog.cancel') },
+    ]}
+    onchoose={(choice) => {
+      const asked = pendingPages;
+      pendingPages = null;
+      if (choice === 'remove' && asked && activePdf) {
+        movePlan(removePages(activePdf.pages, asked.indices));
+      }
+    }}
   />
 {/if}
 

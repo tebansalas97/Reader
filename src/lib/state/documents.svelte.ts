@@ -7,6 +7,7 @@ import {
   sameAnnotations,
   withoutAnnotation,
 } from '$lib/pdf/annotations/model';
+import { initialPlan, planAfterSave, samePlan, type PageEdit } from '$lib/pdf/pages';
 
 export const LARGE_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -40,6 +41,8 @@ export interface PdfDocument extends BaseDocument {
   rotation: 0 | 90 | 180 | 270;
   annotations: Annotation[];
   savedAnnotations: Annotation[];
+  pages: PageEdit[];
+  savedPages: PageEdit[];
   encrypted: boolean;
 }
 
@@ -57,6 +60,7 @@ export function isPdf(doc: Document | null): doc is PdfDocument {
 
 export function documentIsDirty(doc: Document): boolean {
   if (doc.kind === 'markdown') return doc.text !== doc.savedText;
+  if (!samePlan(doc.pages, doc.savedPages)) return true;
   return !sameAnnotations(doc.annotations, doc.savedAnnotations);
 }
 
@@ -108,6 +112,8 @@ function blankPdf(path: string, info: PdfOpenInfo): PdfDocument {
     rotation: 0,
     annotations: info.annotations,
     savedAnnotations: info.annotations.map((a) => ({ ...a })),
+    pages: initialPlan(info.pageCount),
+    savedPages: initialPlan(info.pageCount),
     encrypted: info.encrypted,
   };
 }
@@ -247,6 +253,13 @@ class DocumentsStore {
     if (doc) doc.rotation = rotation;
   }
 
+  setPages(id: string, pages: PageEdit[]): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    doc.pages = pages;
+    doc.page = Math.min(Math.max(1, doc.page), Math.max(1, pages.length));
+  }
+
   setAnnotations(id: string, annotations: Annotation[]): void {
     const doc = this.pdfById(id);
     if (doc) doc.annotations = annotations;
@@ -278,6 +291,10 @@ class DocumentsStore {
     const doc = this.pdfById(id);
     if (!doc) return;
     doc.savedAnnotations = doc.annotations.map((a) => ({ ...a }));
+    doc.pages = planAfterSave(doc.pages);
+    doc.savedPages = doc.pages.map((entry) => ({ ...entry }));
+    doc.pageCount = doc.pages.length;
+    doc.page = Math.min(Math.max(1, doc.page), Math.max(1, doc.pageCount));
     doc.modifiedMs = modifiedMs;
     doc.externalChange = 'none';
   }

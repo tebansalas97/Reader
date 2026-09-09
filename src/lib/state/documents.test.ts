@@ -305,6 +305,36 @@ describe('pdf documents', () => {
     expect(documents.isDirty(id)).toBe(false);
   });
 
+  it('starts with every page in its place', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    expect(documents.pdfById(id)?.pages.map((p) => p.source)).toEqual([1, 2, 3]);
+  });
+
+  it('is dirty once the pages are reordered', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    const doc = documents.pdfById(id)!;
+    documents.setPages(id, [doc.pages[2]!, doc.pages[0]!, doc.pages[1]!]);
+    expect(documents.isDirty(id)).toBe(true);
+  });
+
+  it('is clean again once the new order is saved', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    const doc = documents.pdfById(id)!;
+    documents.setPages(id, [doc.pages[2]!, doc.pages[0]!]);
+    documents.markPdfSaved(id, 5);
+    expect(documents.isDirty(id)).toBe(false);
+    expect(documents.pdfById(id)?.pageCount).toBe(2);
+    expect(documents.pdfById(id)?.pages.map((p) => p.source)).toEqual([1, 2]);
+  });
+
+  it('keeps the current page inside the document after removing pages', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.setPage(id, 3);
+    const doc = documents.pdfById(id)!;
+    documents.setPages(id, [doc.pages[0]!]);
+    expect(documents.pdfById(id)?.page).toBe(1);
+  });
+
   it('opens a pdf as its own kind of document', () => {
     const id = documents.openPdf('C:/d/a.pdf', info());
     expect(documents.byId(id)?.kind).toBe('pdf');

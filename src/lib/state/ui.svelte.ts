@@ -30,6 +30,7 @@ class UiStore {
   snapshotPreview = $state<{ text: string; label: string } | null>(null);
   annotationTool = $state<AnnotationTool>('none');
   selectedAnnotation = $state<string | null>(null);
+  selectedPages = $state<number[]>([]);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);

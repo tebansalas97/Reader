@@ -15,6 +15,7 @@
 
   interface Props {
     index: number;
+    page: number;
     size: PageSize;
     scale: number;
     rotation: number;
@@ -33,6 +34,7 @@
 
   const {
     index,
+    page,
     size,
     scale,
     rotation,
@@ -131,7 +133,7 @@
   {/if}
   {#if live}
     <AnnotationLayer
-      page={index + 1}
+      {page}
       {size}
       {scale}
       {rotation}

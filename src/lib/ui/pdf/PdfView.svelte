@@ -21,6 +21,7 @@
     wheelZoom,
     widestPage,
   } from '$lib/pdf/zoom';
+  import type { PageEdit } from '$lib/pdf/pages';
   import { documents, type PdfDocument } from '$lib/state/documents.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationPopover from './AnnotationPopover.svelte';
@@ -71,7 +72,16 @@
   let lastScale = 0;
 
   const doc = $derived(documents.pdfById(docId));
-  const sizes = $derived(handle?.pageSizes ?? []);
+  const plan = $derived<PageEdit[]>(doc?.pages ?? []);
+  const sizes = $derived(
+    plan
+      .map((entry) => {
+        const size = handle?.pageSizes[entry.source - 1];
+        if (!size) return null;
+        return { ...size, rotation: (size.rotation + entry.rotation) % 360 };
+      })
+      .filter((size): size is NonNullable<typeof size> => size !== null),
+  );
   const rotation = $derived(doc?.rotation ?? 0);
   const zoom = $derived(doc?.zoom ?? 'fit-width');
 
@@ -368,12 +378,13 @@
       {#each sizes as size, index (index)}
         <PdfPage
           {index}
+          page={plan[index]?.source ?? index + 1}
           {size}
           {scale}
           {rotation}
           live={index >= range.renderFirst && index <= range.renderLast}
-          getPage={(n) => handle!.page(n)}
-          annotations={byPage.get(index + 1) ?? []}
+          getPage={(n) => handle!.page(plan[n - 1]?.source ?? n)}
+          annotations={byPage.get(plan[index]?.source ?? index + 1) ?? []}
           {tool}
           {color}
           {author}

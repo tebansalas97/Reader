@@ -5,6 +5,7 @@
   import type { OutlineItem } from '$lib/preview/outline';
   import { ui } from '$lib/state/ui.svelte';
   import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { PageEdit } from '$lib/pdf/pages';
   import type { OutlineEntry, PdfHandle } from '$lib/pdf/document';
   import FileTree from './FileTree.svelte';
   import HistoryPanel from './HistoryPanel.svelte';
@@ -33,6 +34,13 @@
       onpage: (page: number) => void;
       annotations: Annotation[];
       selectedAnnotation: string | null;
+      plan: PageEdit[];
+      selectedPages: number[];
+      onpageselection: (indices: number[]) => void;
+      onpagemove: (indices: number[], to: number) => void;
+      onpageturn: (indices: number[], quarters: 1 | -1) => void;
+      onpageremove: (indices: number[]) => void;
+      onpageextract: (indices: number[]) => void;
       onselectannotation: (id: string, page: number) => void;
       ondeleteannotation: (id: string) => void;
     } | null;
@@ -110,7 +118,18 @@
         <FileTree {entries} {activePath} {onopen} />
       {/if}
     {:else if ui.sidebar === 'pages' && pdf}
-      <PdfThumbnails handle={pdf.handle} currentPage={pdf.page} onselect={pdf.onpage} />
+      <PdfThumbnails
+        handle={pdf.handle}
+        plan={pdf.plan}
+        currentPage={pdf.page}
+        selected={pdf.selectedPages}
+        onselect={pdf.onpage}
+        onselection={pdf.onpageselection}
+        onmove={pdf.onpagemove}
+        onturn={pdf.onpageturn}
+        onremove={pdf.onpageremove}
+        onextract={pdf.onpageextract}
+      />
     {:else if ui.sidebar === 'marks' && pdf}
       <AnnotationsPanel
         annotations={pdf.annotations}

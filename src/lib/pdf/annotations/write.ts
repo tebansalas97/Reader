@@ -76,7 +76,7 @@ function refKey(objectNumber: number, generation: number): string {
 
 type PdfLib = typeof import('pdf-lib');
 
-function annotationDict(
+export function annotationDict(
   lib: PdfLib,
   document: PDFDocument,
   page: PDFPage,
@@ -130,11 +130,7 @@ function annotationDict(
   return context.register(context.obj(dictionary));
 }
 
-export async function writeAnnotations(
-  bytes: Uint8Array,
-  current: Annotation[],
-  original: Annotation[],
-): Promise<Uint8Array> {
+export async function loadForWriting(bytes: Uint8Array): Promise<PDFDocument> {
   const lib = await import('pdf-lib');
 
   let document: PDFDocument;
@@ -150,7 +146,25 @@ export async function writeAnnotations(
     throw new PdfWriteError('encrypted', 'el documento esta cifrado');
   }
 
-  const pages = document.getPages();
+  return document;
+}
+
+export async function saveWritten(document: PDFDocument): Promise<Uint8Array> {
+  try {
+    return await document.save({ useObjectStreams: false });
+  } catch (error) {
+    throw new PdfWriteError('broken', error instanceof Error ? error.message : String(error));
+  }
+}
+
+export async function applyAnnotations(
+  document: PDFDocument,
+  current: Annotation[],
+  original: Annotation[],
+  sourcePages?: PDFPage[],
+): Promise<void> {
+  const lib = await import('pdf-lib');
+  const pages = sourcePages ?? document.getPages();
   const stale = staleRefs(current, original);
   const context = document.context;
 
@@ -185,10 +199,14 @@ export async function writeAnnotations(
     if (annots) annots.push(ref);
     else page.node.set(lib.PDFName.of('Annots'), context.obj([ref]));
   }
+}
 
-  try {
-    return await document.save({ useObjectStreams: false });
-  } catch (error) {
-    throw new PdfWriteError('broken', error instanceof Error ? error.message : String(error));
-  }
+export async function writeAnnotations(
+  bytes: Uint8Array,
+  current: Annotation[],
+  original: Annotation[],
+): Promise<Uint8Array> {
+  const document = await loadForWriting(bytes);
+  await applyAnnotations(document, current, original);
+  return saveWritten(document);
 }
