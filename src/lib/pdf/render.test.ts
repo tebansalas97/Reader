@@ -3,6 +3,7 @@ import type { PageSize } from './document';
 import {
   canvasSize,
   clampScale,
+  createPageRenderer,
   MAX_SCALE,
   MIN_SCALE,
   nextZoomStep,
@@ -158,10 +159,51 @@ describe('releaseCanvas', () => {
     const canvas = document.createElement('canvas');
     canvas.width = 800;
     canvas.height = 600;
-    canvas.style.width = '800px';
     releaseCanvas(canvas);
     expect(canvas.width).toBe(0);
     expect(canvas.height).toBe(0);
-    expect(canvas.getAttribute('style')).toBeNull();
+  });
+});
+
+describe('createPageRenderer', () => {
+  function fakePage(rotate = 0) {
+    const calls: Array<{ scale: number; rotation: number }> = [];
+    return {
+      calls,
+      rotate,
+      getViewport({ scale, rotation }: { scale: number; rotation: number }) {
+        calls.push({ scale, rotation });
+        return { width: 600 * scale, height: 800 * scale };
+      },
+      render() {
+        return { promise: Promise.resolve(), cancel() {} };
+      },
+    };
+  }
+
+  it('never fixes the layout size of the canvas', async () => {
+    const canvas = document.createElement('canvas');
+    const renderer = createPageRenderer(canvas);
+    await renderer.render(fakePage() as never, 2, 0);
+    expect(canvas.style.width).toBe('');
+    expect(canvas.style.height).toBe('');
+  });
+
+  it('sets the bitmap from the zoom', async () => {
+    const canvas = document.createElement('canvas');
+    await createPageRenderer(canvas).render(fakePage() as never, 2, 0);
+    expect(canvas.width).toBeGreaterThan(0);
+  });
+
+  it('adds the rotation of the page to the one asked for', async () => {
+    const page = fakePage(90);
+    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 90);
+    expect(page.calls[0]?.rotation).toBe(180);
+  });
+
+  it('leaves an upright page at the rotation asked for', async () => {
+    const page = fakePage(0);
+    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 270);
+    expect(page.calls[0]?.rotation).toBe(270);
   });
 });

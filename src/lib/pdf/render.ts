@@ -86,13 +86,11 @@ export function createPageRenderer(canvas: HTMLCanvasElement): PageRenderer {
       task = null;
 
       const ratio = globalThis.devicePixelRatio ?? 1;
-      const viewport = page.getViewport({ scale, rotation });
+      const viewport = page.getViewport({ scale, rotation: page.rotate + rotation });
       const density = Math.min(3, Math.max(1, ratio));
 
       canvas.width = Math.max(1, Math.round(viewport.width * density));
       canvas.height = Math.max(1, Math.round(viewport.height * density));
-      canvas.style.width = `${Math.round(viewport.width)}px`;
-      canvas.style.height = `${Math.round(viewport.height)}px`;
 
       const context = canvas.getContext('2d');
       if (!context) return;
@@ -119,5 +117,4 @@ export function createPageRenderer(canvas: HTMLCanvasElement): PageRenderer {
 export function releaseCanvas(canvas: HTMLCanvasElement): void {
   canvas.width = 0;
   canvas.height = 0;
-  canvas.removeAttribute('style');
 }

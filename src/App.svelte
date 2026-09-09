@@ -38,7 +38,13 @@
   import { registerShortcuts } from '$lib/shortcuts';
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
-  import { openPdfDocument, PdfOpenError, type OutlineEntry, type PdfHandle } from '$lib/pdf/document';
+  import {
+    openPdfDocument,
+    PdfOpenError,
+    type OutlineEntry,
+    type PdfHandle,
+  } from '$lib/pdf/document';
+  import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
@@ -381,6 +387,11 @@
     prefs.update({ personalDictionary: personalWords() });
   }
 
+  function zoomPdfOrText(direction: 1 | -1): void {
+    if (activePdf) documents.setZoom(activePdf.id, nextZoomStep(pdfScale, direction));
+    else zoomEditor(direction);
+  }
+
   function goToSource(line: number): void {
     editor?.moveCursorToLine(line);
     if (ui.viewMode === 'preview') ui.viewMode = 'split';
@@ -429,9 +440,12 @@
         ui.toggleScrollSync();
         prefs.update({ scrollSync: ui.scrollSync });
       },
-      zoomIn: () => zoomEditor(1),
-      zoomOut: () => zoomEditor(-1),
-      zoomReset: resetZoom,
+      zoomIn: () => zoomPdfOrText(1),
+      zoomOut: () => zoomPdfOrText(-1),
+      zoomReset: () => {
+        if (activePdf) documents.setZoom(activePdf.id, 'fit-width');
+        else resetZoom();
+      },
       toggleSearch: () => ui.toggleSidebar('search'),
       toggleHistory: () => ui.toggleSidebar('history'),
       toggleFocus: () => prefs.update({ focusMode: !prefs.current.focusMode }),

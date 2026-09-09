@@ -18,16 +18,24 @@
 
   let canvas = $state<HTMLCanvasElement | null>(null);
   let failed = $state(false);
+  let drawn = $state(false);
   let pieces = $state<TextPiece[]>([]);
 
   const box = $derived(canvasSize(size, scale, rotation, globalThis.devicePixelRatio ?? 1));
 
   $effect(() => {
     const node = canvas;
+    const currentScale = scale;
+    const currentRotation = rotation;
+    const currentIndex = index;
+    const height = box.cssHeight;
+    const isLive = live;
+
     if (!node) return;
-    if (!live) {
+    if (!isLive) {
       releaseCanvas(node);
       pieces = [];
+      drawn = false;
       return;
     }
 
@@ -36,18 +44,20 @@
 
     void (async () => {
       try {
-        const page = await getPage(index + 1);
+        const page = await getPage(currentIndex + 1);
         if (cancelled) return;
-        await renderer.render(page, scale, rotation);
+        await renderer.render(page, currentScale, currentRotation);
         if (cancelled) return;
         failed = false;
+        drawn = true;
         const content = await page.getTextContent();
         if (cancelled) return;
-        pieces = piecesFrom(content.items, box.cssHeight, scale);
+        pieces = piecesFrom(content.items, height, currentScale);
       } catch {
         if (cancelled) return;
         failed = true;
-        onfailed?.(index);
+        drawn = false;
+        onfailed?.(currentIndex);
       }
     })();
 
@@ -72,7 +82,7 @@
       {/each}
     </div>
   {/if}
-  {#if !live || failed}
+  {#if !drawn || failed}
     <div class="placeholder">
       <span>{index + 1}</span>
     </div>
@@ -123,5 +133,6 @@
     color: var(--text-faint);
     font-size: 24px;
     font-variant-numeric: tabular-nums;
+    pointer-events: none;
   }
 </style>
