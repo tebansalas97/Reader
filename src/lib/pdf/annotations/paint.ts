@@ -1,8 +1,8 @@
 import type { PageSize } from '../document';
 import { INK_WIDTH, NOTE_SIZE, SHAPE_WIDTH } from './appearance';
-import { boundsOfPoints, quadToScreenRect, strokeToScreen, toScreenRect } from './geometry';
+import { boundsOfPoints, quadPoints, strokeToScreen, toScreenRect } from './geometry';
 import type { Annotation, Rect } from './model';
-import { paintedRects, quadRects } from './shapes';
+import { polygonsOf } from './shapes';
 
 export interface Ellipse {
   cx: number;
@@ -13,6 +13,7 @@ export interface Ellipse {
 
 export interface Painted {
   rects: Rect[];
+  quads: string[];
   polylines: string[];
   ellipse: Ellipse | null;
   note: Rect | null;
@@ -20,8 +21,17 @@ export interface Painted {
   box: Rect | null;
 }
 
-function screenRects(annotation: Annotation, size: PageSize, scale: number, rotation: number) {
-  return paintedRects(annotation).map((rect) => toScreenRect(rect, size, scale, rotation));
+function screenQuads(
+  annotation: Annotation,
+  size: PageSize,
+  scale: number,
+  rotation: number,
+): string[] {
+  return polygonsOf(annotation).map((polygon) =>
+    strokeToScreen(polygon, size, scale, rotation)
+      .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
+      .join(' '),
+  );
 }
 
 function polylinesOf(
@@ -55,35 +65,12 @@ export function paintBox(
   }
   if (annotation.rect) return toScreenRect(annotation.rect, size, scale, rotation);
 
-  const corners = [
-    ...quadRects(annotation).map((rect) => quadToScreenRect(
-      {
-        x1: rect.x,
-        y1: rect.y + rect.height,
-        x2: rect.x + rect.width,
-        y2: rect.y + rect.height,
-        x3: rect.x,
-        y3: rect.y,
-        x4: rect.x + rect.width,
-        y4: rect.y,
-      },
-      size,
-      scale,
-      rotation,
-    )),
-    ...(annotation.ink ?? []).map((stroke) => {
-      const points = strokeToScreen(stroke, size, scale, rotation);
-      return boundsOfPoints(points);
-    }),
-  ].filter((rect): rect is Rect => rect !== null);
-
-  if (corners.length === 0) return null;
-  return boundsOfPoints(
-    corners.flatMap((rect) => [
-      { x: rect.x, y: rect.y },
-      { x: rect.x + rect.width, y: rect.y + rect.height },
-    ]),
-  );
+  const points = [
+    ...(annotation.quads ?? []).flatMap((quad) => quadPoints(quad)),
+    ...(annotation.ink ?? []).flat(),
+  ];
+  if (points.length === 0) return null;
+  return boundsOfPoints(strokeToScreen(points, size, scale, rotation));
 }
 
 export function paintAnnotation(
@@ -112,7 +99,8 @@ export function paintAnnotation(
       : null;
 
   return {
-    rects: shape ? [shape] : screenRects(annotation, size, scale, rotation),
+    rects: shape ? [shape] : [],
+    quads: screenQuads(annotation, size, scale, rotation),
     polylines: annotation.kind === 'ink' ? polylinesOf(annotation, size, scale, rotation) : [],
     ellipse: round
       ? {

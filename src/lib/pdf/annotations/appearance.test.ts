@@ -123,8 +123,27 @@ describe('appearanceBounds', () => {
 describe('appearanceStream', () => {
   it('fills the quads of a highlight', () => {
     const stream = appearanceStream(annotation('highlight', { quads: QUADS }));
-    expect(stream).toContain('10 700 100 12 re');
+    expect(stream).toContain('10 700 m');
+    expect(stream).toContain('110 700 l');
+    expect(stream).toContain('110 712 l');
+    expect(stream).toContain('10 712 l');
     expect(stream).toContain('f');
+  });
+
+  it('follows a quad that was turned', () => {
+    const slanted = {
+      x1: 10,
+      y1: 712,
+      x2: 110,
+      y2: 722,
+      x3: 10,
+      y3: 700,
+      x4: 110,
+      y4: 710,
+    };
+    const stream = appearanceStream(annotation('highlight', { quads: [slanted] }));
+    expect(stream).toContain('110 710 l');
+    expect(stream).toContain('110 722 l');
   });
 
   it('multiplies the highlight so the text shows through', () => {
@@ -139,17 +158,20 @@ describe('appearanceStream', () => {
 
   it('puts the underline at the foot of the line', () => {
     const stream = appearanceStream(annotation('underline', { quads: QUADS }));
-    expect(stream).toMatch(/10 700\.48 100 [\d.]+ re/);
+    expect(stream).toContain('10 700.48 m');
+    expect(stream).toContain('10 701.2 l');
   });
 
   it('puts the strikeout across the middle', () => {
     const stream = appearanceStream(annotation('strikeout', { quads: QUADS }));
-    expect(stream).toMatch(/10 705\.04 100 [\d.]+ re/);
+    expect(stream).toContain('10 705.04 m');
   });
 
   it('never draws a line thinner than the printer can', () => {
     const tiny = [rectToQuad({ x: 0, y: 0, width: 10, height: 1 })];
-    expect(appearanceStream(annotation('underline', { quads: tiny }))).toContain('0.6 re');
+    const stream = appearanceStream(annotation('underline', { quads: tiny }));
+    expect(stream).toContain('0 0.04 m');
+    expect(stream).toContain('0 0.64 l');
   });
 
   it('draws every stroke of a drawing', () => {

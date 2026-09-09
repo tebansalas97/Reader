@@ -52,9 +52,11 @@ function point(type: string, x: number, y: number): Event {
 describe('AnnotationLayer', () => {
   it('paints the annotations of the page', () => {
     const { container } = render(AnnotationLayer, props({ annotations: [HIGHLIGHT] }));
-    const rect = container.querySelector('.mark rect') as SVGRectElement;
-    expect(rect.getAttribute('fill')).toBe('#ffd400');
-    expect(rect.getAttribute('width')).toBe('100');
+    const shape = container.querySelector('.mark polygon') as SVGPolygonElement;
+    expect(shape.getAttribute('fill')).toBe('#ffd400');
+    expect(shape.getAttribute('points')).toBe(
+      '10.00,100.00 110.00,100.00 110.00,88.00 10.00,88.00',
+    );
   });
 
   it('paints a drawing as a line', () => {
@@ -100,12 +102,122 @@ describe('AnnotationLayer', () => {
     expect(onselect).not.toHaveBeenCalled();
   });
 
-  it('marks the selected annotation', () => {
+  it('frames the selected annotation with its handles', () => {
     const { container } = render(
       AnnotationLayer,
       props({ annotations: [HIGHLIGHT], selectedId: 'a1' }),
     );
-    expect(container.querySelector('.hit.selected')).not.toBeNull();
+    expect(container.querySelector('.frame .outline')).not.toBeNull();
+    expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
+    expect(container.querySelector('.frame circle.turn')).not.toBeNull();
+  });
+
+  it('offers no handles while a tool is on', () => {
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedId: 'a1', tool: 'ink' }),
+    );
+    expect(container.querySelector('.frame')).toBeNull();
+  });
+
+  it('does not offer to turn a rectangle', () => {
+    const shape = annotation('rect', {
+      id: 'r1',
+      rect: { x: 10, y: 10, width: 100, height: 50 },
+    });
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [shape], selectedId: 'r1' }),
+    );
+    expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
+    expect(container.querySelector('.frame circle.turn')).toBeNull();
+  });
+
+  it('offers no handles to resize a note', () => {
+    const note = annotation('note', {
+      id: 'n1',
+      rect: { x: 10, y: 700, width: 22, height: 22 },
+    });
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [note], selectedId: 'n1' }),
+    );
+    expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(0);
+  });
+
+  it('moves the selected annotation by dragging it', () => {
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+    );
+    const hit = container.querySelector('.hit')!;
+    hit.dispatchEvent(point('pointerdown', 50, 95));
+    hit.dispatchEvent(point('pointermove', 70, 115));
+    hit.dispatchEvent(point('pointerup', 70, 115));
+
+    const moved = onchange.mock.calls[0]![0] as Annotation;
+    expect(moved.id).toBe('a1');
+    expect(moved.quads![0]!.x1).toBe(30);
+    expect(moved.quads![0]!.y1).toBe(692);
+  });
+
+  it('does not report a move that went nowhere', () => {
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+    );
+    const hit = container.querySelector('.hit')!;
+    hit.dispatchEvent(point('pointerdown', 50, 95));
+    hit.dispatchEvent(point('pointerup', 50, 95));
+    expect(onchange).not.toHaveBeenCalled();
+  });
+
+  it('does not move an annotation that is not selected', () => {
+    const onselect = vi.fn();
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], onselect, onchange }),
+    );
+    const hit = container.querySelector('.hit')!;
+    hit.dispatchEvent(point('pointerdown', 50, 95));
+    hit.dispatchEvent(point('pointermove', 70, 115));
+    hit.dispatchEvent(point('pointerup', 70, 115));
+    expect(onselect).toHaveBeenCalledWith('a1');
+    expect(onchange).not.toHaveBeenCalled();
+  });
+
+  it('stretches the annotation by dragging a corner', () => {
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+    );
+    const corner = container.querySelectorAll('.frame rect.handle')[2]!;
+    corner.dispatchEvent(point('pointerdown', 110, 100));
+    corner.dispatchEvent(point('pointermove', 210, 100));
+    corner.dispatchEvent(point('pointerup', 210, 100));
+
+    const scaled = onchange.mock.calls[0]![0] as Annotation;
+    expect(scaled.quads![0]!.x2).toBeCloseTo(210, 5);
+    expect(scaled.quads![0]!.y1).toBeCloseTo(712, 5);
+  });
+
+  it('turns the annotation by dragging the round handle', () => {
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+    );
+    const turn = container.querySelector('.frame circle.turn')!;
+    turn.dispatchEvent(point('pointerdown', 60, 70));
+    turn.dispatchEvent(point('pointermove', 200, 94));
+    turn.dispatchEvent(point('pointerup', 200, 94));
+
+    const turned = onchange.mock.calls[0]![0] as Annotation;
+    expect(turned.quads![0]!.y1).not.toBeCloseTo(turned.quads![0]!.y2, 3);
   });
 
   it('draws a rectangle from a drag, in page coordinates', () => {

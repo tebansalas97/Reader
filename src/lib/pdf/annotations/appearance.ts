@@ -1,5 +1,5 @@
-import { boundsOf, type Annotation, type Rect } from './model';
-import { lineRects, quadRects, STRIKEOUT_POSITION, UNDERLINE_POSITION } from './shapes';
+import { boundsOf, type Annotation, type Point, type Rect } from './model';
+import { polygonsOf } from './shapes';
 
 export const INK_WIDTH = 2;
 export const SHAPE_WIDTH = 1.5;
@@ -71,16 +71,21 @@ function rectPath(rect: Rect): string {
   return `${num(rect.x)} ${num(rect.y)} ${num(rect.width)} ${num(rect.height)} re`;
 }
 
-function highlightStream(annotation: Annotation): string {
-  const rects = quadRects(annotation);
-  if (rects.length === 0) return '';
-  return ['/GSMul gs', fillColor(annotation.color), ...rects.map(rectPath), 'f'].join('\n');
+function polygonPath(points: Point[]): string {
+  const [first, ...rest] = points;
+  if (!first) return '';
+  return [
+    `${num(first.x)} ${num(first.y)} m`,
+    ...rest.map((point) => `${num(point.x)} ${num(point.y)} l`),
+    'h',
+  ].join('\n');
 }
 
-function lineStream(annotation: Annotation, position: number): string {
-  const rects = lineRects(annotation, position);
-  if (rects.length === 0) return '';
-  return [fillColor(annotation.color), ...rects.map(rectPath), 'f'].join('\n');
+function quadStream(annotation: Annotation, multiply: boolean): string {
+  const polygons = polygonsOf(annotation);
+  if (polygons.length === 0) return '';
+  const head = multiply ? ['/GSMul gs'] : [];
+  return [...head, fillColor(annotation.color), ...polygons.map(polygonPath), 'f'].join('\n');
 }
 
 function inkStream(annotation: Annotation): string {
@@ -186,11 +191,10 @@ function noteStream(annotation: Annotation): string {
 export function appearanceStream(annotation: Annotation): string {
   switch (annotation.kind) {
     case 'highlight':
-      return highlightStream(annotation);
+      return quadStream(annotation, true);
     case 'underline':
-      return lineStream(annotation, UNDERLINE_POSITION);
     case 'strikeout':
-      return lineStream(annotation, STRIKEOUT_POSITION);
+      return quadStream(annotation, false);
     case 'ink':
       return inkStream(annotation);
     case 'rect':

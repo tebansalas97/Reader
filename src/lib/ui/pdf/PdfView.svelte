@@ -9,6 +9,7 @@
     type PageBox,
   } from '$lib/pdf/annotations/selection';
   import { readAnnotations } from '$lib/pdf/annotations/read';
+  import { movedBy } from '$lib/pdf/annotations/transform';
   import { openPdfDocument, PdfOpenError, type PdfHandle } from '$lib/pdf/document';
   import { scaleFor } from '$lib/pdf/render';
   import { offsetOfPage, visibleRange } from '$lib/pdf/virtual';
@@ -259,13 +260,31 @@
     const id: string | null = selectedId;
     if (id === null) return;
 
+    const NUDGE: Record<string, [number, number]> = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, 1],
+      ArrowDown: [0, -1],
+    };
+
     function onKeyDown(event: KeyboardEvent): void {
-      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
       const target = event.target as HTMLElement | null;
       const tag = target?.tagName ?? '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        ondelete?.(id as string);
+        return;
+      }
+
+      const step = NUDGE[event.key];
+      if (!step) return;
+      const annotation = annotations.find((entry) => entry.id === id);
+      if (!annotation) return;
+      const size = event.shiftKey ? 10 : 1;
       event.preventDefault();
-      ondelete?.(id as string);
+      onchange?.(movedBy(annotation, step[0] * size, step[1] * size));
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -361,6 +380,7 @@
           {selectedId}
           oncreate={(annotation) => oncreate?.([annotation])}
           onselect={(id) => onselect?.(id)}
+          onchange={(annotation) => onchange?.(annotation)}
         />
       {/each}
     </div>

@@ -4,11 +4,13 @@
   import { t } from '$lib/i18n';
   import type { OutlineItem } from '$lib/preview/outline';
   import { ui } from '$lib/state/ui.svelte';
+  import type { Annotation } from '$lib/pdf/annotations/model';
   import type { OutlineEntry, PdfHandle } from '$lib/pdf/document';
   import FileTree from './FileTree.svelte';
   import HistoryPanel from './HistoryPanel.svelte';
   import Outline from './Outline.svelte';
   import SearchPanel from './SearchPanel.svelte';
+  import AnnotationsPanel from './pdf/AnnotationsPanel.svelte';
   import PdfOutline from './pdf/PdfOutline.svelte';
   import PdfThumbnails from './pdf/PdfThumbnails.svelte';
 
@@ -29,6 +31,10 @@
       outline: OutlineEntry[];
       page: number;
       onpage: (page: number) => void;
+      annotations: Annotation[];
+      selectedAnnotation: string | null;
+      onselectannotation: (id: string, page: number) => void;
+      ondeleteannotation: (id: string) => void;
     } | null;
   }
 
@@ -49,6 +55,17 @@
 
   let dragging = $state(false);
 
+  const ALL_TABS = [
+    { panel: 'files' as const, label: 'sidebar.files', icon: 'M2 4.5h4L7.4 6H14v7.5H2z' },
+    { panel: 'pages' as const, label: 'sidebar.pages', icon: 'M5.5 2h5l2.5 2.5V11h-7.5zM2.5 5v9h8', pdfOnly: true },
+    { panel: 'marks' as const, label: 'sidebar.marks', icon: 'M3 3h10v7H7l-3 3v-3H3z', pdfOnly: true },
+    { panel: 'outline' as const, label: 'sidebar.outline', icon: 'M3 4h10M5 8h8M7 12h6' },
+    { panel: 'search' as const, label: 'sidebar.search', icon: 'M7.5 12a4.5 4.5 0 100-9 4.5 4.5 0 000 9zM11 11l3 3' },
+    { panel: 'history' as const, label: 'sidebar.history', icon: 'M2.5 4v3h3M2.6 7a5.5 5.5 0 111.2 4.5M8 5v3.2l2.4 1.4' },
+  ];
+
+  const tabs = $derived(ALL_TABS.filter((tab) => pdf !== null || !tab.pdfOnly));
+
   function startResize(event: PointerEvent): void {
     dragging = true;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -67,24 +84,19 @@
 </script>
 
 <aside class="sidebar" style="width: {ui.sidebarWidth}px">
-  <div class="panels">
-    <button class:active={ui.sidebar === 'files'} onclick={() => (ui.sidebar = 'files')}>
-      {t('sidebar.files')}
-    </button>
-    {#if pdf}
-      <button class:active={ui.sidebar === 'pages'} onclick={() => (ui.sidebar = 'pages')}>
-        {t('sidebar.pages')}
+  <div class="panels" role="tablist">
+    {#each tabs as tab (tab.panel)}
+      <button
+        role="tab"
+        class:active={ui.sidebar === tab.panel}
+        aria-selected={ui.sidebar === tab.panel}
+        title={t(tab.label)}
+        aria-label={t(tab.label)}
+        onclick={() => (ui.sidebar = tab.panel)}
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d={tab.icon} /></svg>
       </button>
-    {/if}
-    <button class:active={ui.sidebar === 'outline'} onclick={() => (ui.sidebar = 'outline')}>
-      {t('sidebar.outline')}
-    </button>
-    <button class:active={ui.sidebar === 'search'} onclick={() => (ui.sidebar = 'search')}>
-      {t('sidebar.search')}
-    </button>
-    <button class:active={ui.sidebar === 'history'} onclick={() => (ui.sidebar = 'history')}>
-      {t('sidebar.history')}
-    </button>
+    {/each}
   </div>
   <div class="content">
     {#if ui.sidebar === 'files'}
@@ -99,6 +111,14 @@
       {/if}
     {:else if ui.sidebar === 'pages' && pdf}
       <PdfThumbnails handle={pdf.handle} currentPage={pdf.page} onselect={pdf.onpage} />
+    {:else if ui.sidebar === 'marks' && pdf}
+      <AnnotationsPanel
+        annotations={pdf.annotations}
+        handle={pdf.handle}
+        selectedId={pdf.selectedAnnotation}
+        onselect={pdf.onselectannotation}
+        ondelete={pdf.ondeleteannotation}
+      />
     {:else if ui.sidebar === 'outline'}
       {#if pdf}
         <PdfOutline entries={pdf.outline} currentPage={pdf.page} onselect={pdf.onpage} />
@@ -149,14 +169,27 @@
   .panels button {
     flex: 1;
     min-width: 0;
-    padding: 8px 2px;
-    font-size: 0.92em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 34px;
     color: var(--text-muted);
     border-bottom: 2px solid transparent;
   }
 
+  .panels button svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .panels button:hover {
     color: var(--text);
+    background: var(--bg-hover);
   }
 
   .panels button.active {

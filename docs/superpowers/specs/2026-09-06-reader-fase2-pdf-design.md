@@ -227,6 +227,27 @@ La solución es el almacén de anotaciones de pdf.js: al abrir, Reader marca con
 lienzo sigue dibujando todo lo demás con la fidelidad del archivo, y lo que
 Reader pinta responde al momento a cualquier cambio.
 
+### 5.6.2 Mover, estirar y girar
+
+Una anotación seleccionada trae un recuadro con cuatro tiradores en las esquinas
+para estirarla y, cuando su forma lo admite, uno redondo arriba para girarla. Se
+mueve arrastrándola y con las flechas del teclado.
+
+Todo se calcula en coordenadas del PDF, no de pantalla, así que funciona igual
+con cualquier zoom y con la página girada.
+
+Girar solo se ofrece donde el PDF lo puede guardar de verdad:
+
+- Resaltado, subrayado y tachado guardan cuatro esquinas por línea
+  (`/QuadPoints`), que no tienen por qué formar un rectángulo recto. Por eso se
+  pueden girar, y por eso se dibujan como polígonos y no como rectángulos, tanto
+  en pantalla como en el flujo de apariencia.
+- Un dibujo (`/Ink`) es una lista de puntos: girarlo es girarlos.
+- Un rectángulo (`/Square`) y una elipse (`/Circle`) son, por definición del
+  formato, cajas rectas. Un rectángulo girado dejaría de ser un rectángulo en
+  cualquier otro visor, así que no se ofrece el giro para ellos. Para una forma
+  girada está el lápiz.
+
 ### 5.7 Selección de texto y subrayado
 
 pdf.js entrega, por página, los elementos de texto con su posición. La capa de

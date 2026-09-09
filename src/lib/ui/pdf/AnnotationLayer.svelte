@@ -1,7 +1,14 @@
 <script lang="ts">
+  import { t } from '$lib/i18n';
   import { INK_WIDTH, NOTE_SIZE } from '$lib/pdf/annotations/appearance';
   import { toPdfPoint, toPdfRect } from '$lib/pdf/annotations/geometry';
-  import type { Annotation, Point } from '$lib/pdf/annotations/model';
+  import {
+    annotationKey,
+    boundsOf,
+    type Annotation,
+    type Point,
+    type Rect,
+  } from '$lib/pdf/annotations/model';
   import { hitBox, paintAnnotation } from '$lib/pdf/annotations/paint';
   import {
     bigEnough,
@@ -9,6 +16,16 @@
     dragRect,
     simplify,
   } from '$lib/pdf/annotations/selection';
+  import {
+    angleBetween,
+    boundsFrom,
+    canResize,
+    canRotate,
+    centreOf,
+    movedBy,
+    rotatedAround,
+    scaledInto,
+  } from '$lib/pdf/annotations/transform';
   import type { PageSize } from '$lib/pdf/document';
   import { rotatedSize } from '$lib/pdf/render';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
@@ -25,6 +42,7 @@
     selectedId: string | null;
     oncreate: (annotation: Annotation) => void;
     onselect: (id: string | null) => void;
+    onchange?: (annotation: Annotation) => void;
   }
 
   const {
@@ -39,28 +57,59 @@
     selectedId,
     oncreate,
     onselect,
+    onchange,
   }: Props = $props();
+
+  type Mode = 'move' | 'resize' | 'rotate';
+
+  interface Gesture {
+    mode: Mode;
+    original: Annotation;
+    start: Point;
+    from: Rect;
+    anchor: Point;
+    centre: Point;
+  }
 
   let root = $state<SVGSVGElement | null>(null);
   let stroke = $state<Point[]>([]);
   let start = $state<Point | null>(null);
   let end = $state<Point | null>(null);
+  let gesture = $state<Gesture | null>(null);
+  let draft = $state<Annotation | null>(null);
 
   const box = $derived(rotatedSize(size, rotation));
   const width = $derived(Math.max(1, Math.round(box.width * scale)));
   const height = $derived(Math.max(1, Math.round(box.height * scale)));
 
   const draws = $derived(tool === 'ink' || tool === 'rect' || tool === 'ellipse' || tool === 'note');
+  const shown = $derived(
+    annotations.map((annotation) => (draft && draft.id === annotation.id ? draft : annotation)),
+  );
   const painted = $derived(
-    annotations.map((annotation) => ({
+    shown.map((annotation) => ({
       annotation,
       shape: paintAnnotation(annotation, size, scale, rotation),
     })),
   );
   const hits = $derived(
-    annotations
+    shown
       .map((annotation) => ({ annotation, box: hitBox(annotation, size, scale, rotation) }))
       .filter((entry) => entry.box !== null),
+  );
+  const selected = $derived(shown.find((annotation) => annotation.id === selectedId) ?? null);
+  const frame = $derived(
+    selected && !draws ? (paintAnnotation(selected, size, scale, rotation).box ?? null) : null,
+  );
+  const corners = $derived(
+    frame
+      ? [
+          { key: 'tl', x: frame.x, y: frame.y, cursor: 'nwse-resize' },
+          { key: 'tr', x: frame.x + frame.width, y: frame.y, cursor: 'nesw-resize' },
+          { key: 'br', x: frame.x + frame.width, y: frame.y + frame.height, cursor: 'nwse-resize' },
+          { key: 'bl', x: frame.x, y: frame.y + frame.height, cursor: 'nesw-resize' },
+        ]
+      : [],
   );
   const preview = $derived(start && end ? dragRect(start, end) : null);
   const inkPreview = $derived(
@@ -74,10 +123,15 @@
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
 
+  function inPdf(event: PointerEvent): Point {
+    return toPdfPoint(pointOf(event), size, scale, rotation);
+  }
+
   function capture(event: PointerEvent, on: boolean): void {
+    const node = event.currentTarget as Element | null;
     try {
-      if (on) root?.setPointerCapture(event.pointerId);
-      else root?.releasePointerCapture(event.pointerId);
+      if (on) node?.setPointerCapture(event.pointerId);
+      else node?.releasePointerCapture(event.pointerId);
     } catch {
       return;
     }
@@ -91,6 +145,75 @@
 
   function emit(annotation: Annotation | null): void {
     if (annotation) oncreate(annotation);
+  }
+
+  function screenBox(annotation: Annotation): Rect | null {
+    return paintAnnotation(annotation, size, scale, rotation).box;
+  }
+
+  function cornerAnchor(key: string): Point {
+    const annotation = selected;
+    const rect = annotation ? screenBox(annotation) : null;
+    if (!rect) return { x: 0, y: 0 };
+
+    const opposite =
+      {
+        tl: { x: rect.x + rect.width, y: rect.y + rect.height },
+        tr: { x: rect.x, y: rect.y + rect.height },
+        br: { x: rect.x, y: rect.y },
+        bl: { x: rect.x + rect.width, y: rect.y },
+      }[key] ?? { x: rect.x, y: rect.y };
+
+    return toPdfPoint(opposite, size, scale, rotation);
+  }
+
+  function beginGesture(event: PointerEvent, mode: Mode, anchorAt?: Point): void {
+    const annotation = selected;
+    if (!annotation || event.button !== 0) return;
+    const from = boundsOf(annotation);
+    const centre = centreOf(annotation);
+    if (!from || !centre) return;
+
+    event.stopPropagation();
+    event.preventDefault();
+    capture(event, true);
+    gesture = {
+      mode,
+      original: annotation,
+      start: inPdf(event),
+      from,
+      anchor: anchorAt ?? { x: from.x, y: from.y },
+      centre,
+    };
+    draft = annotation;
+  }
+
+  function updateGesture(event: PointerEvent): void {
+    const current = gesture;
+    if (!current) return;
+    const pointer = inPdf(event);
+
+    if (current.mode === 'move') {
+      draft = movedBy(current.original, pointer.x - current.start.x, pointer.y - current.start.y);
+    } else if (current.mode === 'resize') {
+      draft = scaledInto(current.original, current.from, boundsFrom(current.anchor, pointer));
+    } else {
+      draft = rotatedAround(
+        current.original,
+        current.centre,
+        angleBetween(current.centre, current.start, pointer),
+      );
+    }
+  }
+
+  function endGesture(event: PointerEvent): void {
+    const current = gesture;
+    const made = draft;
+    if (!current) return;
+    capture(event, false);
+    gesture = null;
+    draft = null;
+    if (made && annotationKey(made) !== annotationKey(current.original)) onchange?.(made);
   }
 
   function onPointerDown(event: PointerEvent): void {
@@ -121,12 +244,20 @@
   }
 
   function onPointerMove(event: PointerEvent): void {
+    if (gesture) {
+      updateGesture(event);
+      return;
+    }
     if (!draws) return;
     if (tool === 'ink' && stroke.length > 0) stroke = [...stroke, pointOf(event)];
     else if (start) end = pointOf(event);
   }
 
   function onPointerUp(event: PointerEvent): void {
+    if (gesture) {
+      endGesture(event);
+      return;
+    }
     if (!draws) return;
     capture(event, false);
 
@@ -183,9 +314,12 @@
           stroke-width={entry.shape.strokeWidth}
         />
       {/each}
+      {#each entry.shape.quads as points, i (i)}
+        <polygon {points} fill={entry.annotation.color} stroke="none" />
+      {/each}
       {#each entry.shape.polylines as points, i (i)}
         <polyline
-          points={points}
+          {points}
           fill="none"
           stroke={entry.annotation.color}
           stroke-width={entry.shape.strokeWidth}
@@ -239,21 +373,72 @@
     <rect
       class="hit"
       class:on={!draws}
-      class:selected={entry.annotation.id === selectedId}
+      class:grab={!draws && entry.annotation.id === selectedId}
       x={entry.box!.x}
       y={entry.box!.y}
       width={entry.box!.width}
       height={entry.box!.height}
       role="button"
       tabindex="-1"
-      aria-label={entry.annotation.kind}
+      aria-label={t(`pdf.tool.${entry.annotation.kind}`)}
       onpointerdown={(event) => {
         if (draws) return;
+        if (entry.annotation.id === selectedId) {
+          beginGesture(event, 'move');
+          return;
+        }
         event.stopPropagation();
         onselect(entry.annotation.id);
       }}
+      onpointermove={onPointerMove}
+      onpointerup={onPointerUp}
     />
   {/each}
+
+  {#if frame && selected}
+    <g class="frame">
+      <rect class="outline" x={frame.x} y={frame.y} width={frame.width} height={frame.height} />
+      {#if canRotate(selected.kind)}
+        <line
+          class="stem"
+          x1={frame.x + frame.width / 2}
+          y1={frame.y}
+          x2={frame.x + frame.width / 2}
+          y2={frame.y - 18}
+        />
+        <circle
+          class="handle turn"
+          cx={frame.x + frame.width / 2}
+          cy={frame.y - 18}
+          r="5"
+          role="button"
+          tabindex="-1"
+          aria-label={t('pdf.rotateMark')}
+          onpointerdown={(event) => beginGesture(event, 'rotate')}
+          onpointermove={onPointerMove}
+          onpointerup={onPointerUp}
+        />
+      {/if}
+      {#if canResize(selected.kind)}
+        {#each corners as corner (corner.key)}
+          <rect
+            class="handle"
+            style="cursor: {corner.cursor}"
+            x={corner.x - 4}
+            y={corner.y - 4}
+            width="8"
+            height="8"
+            role="button"
+            tabindex="-1"
+            aria-label={t('pdf.resizeMark')}
+            onpointerdown={(event) => beginGesture(event, 'resize', cornerAnchor(corner.key))}
+            onpointermove={onPointerMove}
+            onpointerup={onPointerUp}
+          />
+        {/each}
+      {/if}
+    </g>
+  {/if}
 
   {#if preview && (tool === 'rect' || tool === 'ellipse')}
     {#if tool === 'rect'}
@@ -318,11 +503,34 @@
     cursor: pointer;
   }
 
-  .hit.selected {
-    fill: rgba(64, 120, 240, 0.12);
+  .hit.grab {
+    cursor: move;
+  }
+
+  .outline {
+    fill: none;
     stroke: var(--accent);
     stroke-width: 1;
     stroke-dasharray: 3 3;
+    pointer-events: none;
+  }
+
+  .stem {
+    stroke: var(--accent);
+    stroke-width: 1;
+    pointer-events: none;
+  }
+
+  .handle {
+    fill: var(--bg-elevated);
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    pointer-events: all;
+    outline: none;
+  }
+
+  .handle.turn {
+    cursor: grab;
   }
 
   .preview {

@@ -4,6 +4,15 @@ import { rectToQuad } from './geometry';
 import type { Annotation, AnnotationKind } from './model';
 import { hitBox, paintAnnotation, paintBox } from './paint';
 
+function boxOf(points: string) {
+  const numbers = points.split(' ').map((pair) => pair.split(',').map(Number));
+  const xs = numbers.map((pair) => pair[0]!);
+  const ys = numbers.map((pair) => pair[1]!);
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
+}
+
 const A4: PageSize = { width: 600, height: 800, rotation: 0 };
 
 function annotation(kind: AnnotationKind, extra: Partial<Annotation> = {}): Annotation {
@@ -26,29 +35,38 @@ const QUADS = [rectToQuad({ x: 10, y: 700, width: 100, height: 12 })];
 describe('paintAnnotation', () => {
   it('paints a highlight where the text is', () => {
     const painted = paintAnnotation(annotation('highlight', { quads: QUADS }), A4, 1, 0);
-    expect(painted.rects).toEqual([{ x: 10, y: 88, width: 100, height: 12 }]);
+    expect(boxOf(painted.quads[0]!)).toEqual({ x: 10, y: 88, width: 100, height: 12 });
   });
 
   it('follows the zoom', () => {
     const painted = paintAnnotation(annotation('highlight', { quads: QUADS }), A4, 2, 0);
-    expect(painted.rects[0]).toEqual({ x: 20, y: 176, width: 200, height: 24 });
+    expect(boxOf(painted.quads[0]!)).toEqual({ x: 20, y: 176, width: 200, height: 24 });
   });
 
   it('follows the rotation of the page', () => {
     const painted = paintAnnotation(annotation('highlight', { quads: QUADS }), A4, 1, 90);
-    expect(painted.rects[0]?.width).toBeCloseTo(12, 5);
-    expect(painted.rects[0]?.height).toBeCloseTo(100, 5);
+    const box = boxOf(painted.quads[0]!);
+    expect(box.width).toBeCloseTo(12, 5);
+    expect(box.height).toBeCloseTo(100, 5);
+  });
+
+  it('paints a quad that was turned as a slanted polygon', () => {
+    const slanted = { x1: 10, y1: 712, x2: 110, y2: 722, x3: 10, y3: 700, x4: 110, y4: 710 };
+    const painted = paintAnnotation(annotation('highlight', { quads: [slanted] }), A4, 1, 0);
+    const box = boxOf(painted.quads[0]!);
+    expect(box.height).toBeCloseTo(22, 5);
   });
 
   it('paints an underline thinner than the line of text', () => {
     const painted = paintAnnotation(annotation('underline', { quads: QUADS }), A4, 1, 0);
-    expect(painted.rects[0]?.height).toBeLessThan(2);
-    expect(painted.rects[0]?.y).toBeGreaterThan(98);
+    const box = boxOf(painted.quads[0]!);
+    expect(box.height).toBeLessThan(2);
+    expect(box.y).toBeGreaterThan(98);
   });
 
   it('paints a strikeout across the middle', () => {
     const painted = paintAnnotation(annotation('strikeout', { quads: QUADS }), A4, 1, 0);
-    expect(painted.rects[0]?.y).toBeCloseTo(800 - 700 - 12 * 0.42 - 0.72, 1);
+    expect(boxOf(painted.quads[0]!).y).toBeCloseTo(800 - 700 - 12 * 0.48, 1);
   });
 
   it('paints every stroke of a drawing', () => {
@@ -105,6 +123,7 @@ describe('paintAnnotation', () => {
 
   it('paints nothing for an annotation with no geometry', () => {
     const painted = paintAnnotation(annotation('highlight'), A4, 1, 0);
+    expect(painted.quads).toEqual([]);
     expect(painted.rects).toEqual([]);
     expect(painted.box).toBeNull();
   });

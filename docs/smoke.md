@@ -132,6 +132,15 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 32. Pulsa sobre una marca. Se abre el globo: cambia el color, escribe un
     comentario y ciérralo con `Escape`.
 33. Selecciona una marca y pulsa `Supr`. Desaparece al momento.
+33b. Selecciona una marca y arrástrala. Se mueve con el ratón y se queda
+    donde la sueltas. Con las flechas se mueve punto a punto, y con
+    `Mayús` diez a la vez.
+33c. Arrastra una esquina del recuadro de selección. La marca se estira.
+    En un resaltado, un subrayado, un tachado o un dibujo aparece además
+    un tirador redondo arriba para girarla.
+33d. Abre la pestaña de notas en la barra lateral. Están todas, agrupadas
+    por página y con el texto que hay debajo de cada resaltado. Pulsa una
+    y el visor salta a ella.
 34. Guarda con `Ctrl+S`. Aparece «Anotaciones guardadas» y la barra vuelve a
     «Guardado».
 35. Cierra la pestaña y vuelve a abrir el archivo. Las anotaciones siguen ahí,

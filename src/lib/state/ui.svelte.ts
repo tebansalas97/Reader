@@ -8,6 +8,7 @@ export type SidebarPanel =
   | 'search'
   | 'history'
   | 'pages'
+  | 'marks'
   | null;
 
 const ORDER: ViewMode[] = ['editor', 'split', 'preview'];

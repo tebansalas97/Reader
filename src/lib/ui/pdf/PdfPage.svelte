@@ -28,6 +28,7 @@
     selectedId?: string | null;
     oncreate?: (annotation: Annotation) => void;
     onselect?: (id: string | null) => void;
+    onchange?: (annotation: Annotation) => void;
   }
 
   const {
@@ -45,6 +46,7 @@
     selectedId = null,
     oncreate,
     onselect,
+    onchange,
   }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -140,6 +142,7 @@
       {selectedId}
       oncreate={(annotation) => oncreate?.(annotation)}
       onselect={(id) => onselect?.(id)}
+      onchange={(annotation) => onchange?.(annotation)}
     />
   {/if}
   {#if !drawn || failed}

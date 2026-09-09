@@ -726,6 +726,16 @@
               outline: pdfOutline,
               page: activePdf.page,
               onpage: (page) => documents.setPage(activePdf.id, page),
+              annotations: activePdf.annotations,
+              selectedAnnotation: ui.selectedAnnotation,
+              onselectannotation: (id, page) => {
+                documents.setPage(activePdf.id, page);
+                ui.selectedAnnotation = id;
+              },
+              ondeleteannotation: (id) => {
+                documents.removeAnnotation(activePdf.id, id);
+                if (ui.selectedAnnotation === id) ui.selectedAnnotation = null;
+              },
             }
           : null}
       />
