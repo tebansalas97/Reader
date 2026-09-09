@@ -2,6 +2,7 @@
   import type { PDFPageProxy } from 'pdfjs-dist';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
+  import { piecesFrom, styleFor, type TextPiece } from '$lib/pdf/text-layer';
 
   interface Props {
     index: number;
@@ -17,6 +18,7 @@
 
   let canvas = $state<HTMLCanvasElement | null>(null);
   let failed = $state(false);
+  let pieces = $state<TextPiece[]>([]);
 
   const box = $derived(canvasSize(size, scale, rotation, globalThis.devicePixelRatio ?? 1));
 
@@ -25,6 +27,7 @@
     if (!node) return;
     if (!live) {
       releaseCanvas(node);
+      pieces = [];
       return;
     }
 
@@ -36,7 +39,11 @@
         const page = await getPage(index + 1);
         if (cancelled) return;
         await renderer.render(page, scale, rotation);
-        if (!cancelled) failed = false;
+        if (cancelled) return;
+        failed = false;
+        const content = await page.getTextContent();
+        if (cancelled) return;
+        pieces = piecesFrom(content.items, box.cssHeight, scale);
       } catch {
         if (cancelled) return;
         failed = true;
@@ -58,6 +65,13 @@
   style="width: {box.cssWidth}px; height: {box.cssHeight}px"
 >
   <canvas bind:this={canvas} aria-label="Página {index + 1}"></canvas>
+  {#if live && pieces.length > 0}
+    <div class="text-layer">
+      {#each pieces as piece, i (i)}
+        <span style={styleFor(piece)}>{piece.text}</span>
+      {/each}
+    </div>
+  {/if}
   {#if !live || failed}
     <div class="placeholder">
       <span>{index + 1}</span>
@@ -77,6 +91,26 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  .text-layer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    line-height: 1;
+    user-select: text;
+    cursor: text;
+  }
+
+  .text-layer span {
+    position: absolute;
+    white-space: pre;
+    transform-origin: 0 0;
+    color: transparent;
+  }
+
+  .text-layer span::selection {
+    background: rgba(64, 120, 240, 0.35);
   }
 
   .placeholder {

@@ -1,5 +1,11 @@
 export type ViewMode = 'editor' | 'split' | 'preview';
-export type SidebarPanel = 'files' | 'outline' | 'search' | 'history' | null;
+export type SidebarPanel =
+  | 'files'
+  | 'outline'
+  | 'search'
+  | 'history'
+  | 'pages'
+  | null;
 
 const ORDER: ViewMode[] = ['editor', 'split', 'preview'];
 

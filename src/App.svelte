@@ -38,7 +38,7 @@
   import { registerShortcuts } from '$lib/shortcuts';
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
-  import { openPdfDocument, PdfOpenError } from '$lib/pdf/document';
+  import { openPdfDocument, PdfOpenError, type OutlineEntry, type PdfHandle } from '$lib/pdf/document';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
@@ -82,6 +82,8 @@
   let selectedWords = $state(0);
   let fragment = $state('');
   let pdfScale = $state(1);
+  let pdfHandle = $state<PdfHandle | null>(null);
+  let pdfOutline = $state<OutlineEntry[]>([]);
   let spellMenu = $state<{
     word: string;
     suggestions: string[];
@@ -564,6 +566,14 @@
   });
 
   $effect(() => {
+    const id = activePdf?.id;
+    if (id === undefined) {
+      pdfHandle = null;
+      pdfOutline = [];
+    }
+  });
+
+  $effect(() => {
     const theme = resolvedTheme();
     document.documentElement.dataset.theme = theme;
   });
@@ -637,6 +647,14 @@
         onsearchhit={(path, line) => void openAtLine(path, line)}
         onrestore={restoreSnapshot}
         onpreview={(text, label) => (ui.snapshotPreview = { text, label })}
+        pdf={activePdf
+          ? {
+              handle: pdfHandle,
+              outline: pdfOutline,
+              page: activePdf.page,
+              onpage: (page) => documents.setPage(activePdf.id, page),
+            }
+          : null}
       />
     {/if}
 
@@ -670,6 +688,10 @@
               docId={activePdf.id}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
+              onready={(handle) => {
+                pdfHandle = handle;
+                void handle.outline().then((entries) => (pdfOutline = entries));
+              }}
             />
           {:else if ui.viewMode === 'split'}
             <SplitPane

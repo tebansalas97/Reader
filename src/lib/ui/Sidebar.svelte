@@ -4,10 +4,13 @@
   import { t } from '$lib/i18n';
   import type { OutlineItem } from '$lib/preview/outline';
   import { ui } from '$lib/state/ui.svelte';
+  import type { OutlineEntry, PdfHandle } from '$lib/pdf/document';
   import FileTree from './FileTree.svelte';
   import HistoryPanel from './HistoryPanel.svelte';
   import Outline from './Outline.svelte';
   import SearchPanel from './SearchPanel.svelte';
+  import PdfOutline from './pdf/PdfOutline.svelte';
+  import PdfThumbnails from './pdf/PdfThumbnails.svelte';
 
   interface Props {
     entries: Entry[];
@@ -21,6 +24,12 @@
     onsearchhit: (path: string, line: number) => void;
     onrestore: (text: string) => void;
     onpreview: (text: string, label: string) => void;
+    pdf: {
+      handle: PdfHandle | null;
+      outline: OutlineEntry[];
+      page: number;
+      onpage: (page: number) => void;
+    } | null;
   }
 
   const {
@@ -35,6 +44,7 @@
     onsearchhit,
     onrestore,
     onpreview,
+    pdf,
   }: Props = $props();
 
   let dragging = $state(false);
@@ -61,6 +71,11 @@
     <button class:active={ui.sidebar === 'files'} onclick={() => (ui.sidebar = 'files')}>
       {t('sidebar.files')}
     </button>
+    {#if pdf}
+      <button class:active={ui.sidebar === 'pages'} onclick={() => (ui.sidebar = 'pages')}>
+        {t('sidebar.pages')}
+      </button>
+    {/if}
     <button class:active={ui.sidebar === 'outline'} onclick={() => (ui.sidebar = 'outline')}>
       {t('sidebar.outline')}
     </button>
@@ -82,8 +97,14 @@
         <p class="folder" title={ui.folder}>{basename(ui.folder)}</p>
         <FileTree {entries} {activePath} {onopen} />
       {/if}
+    {:else if ui.sidebar === 'pages' && pdf}
+      <PdfThumbnails handle={pdf.handle} currentPage={pdf.page} onselect={pdf.onpage} />
     {:else if ui.sidebar === 'outline'}
-      <Outline items={outline} {activeIndex} onselect={onheading} />
+      {#if pdf}
+        <PdfOutline entries={pdf.outline} currentPage={pdf.page} onselect={pdf.onpage} />
+      {:else}
+        <Outline items={outline} {activeIndex} onselect={onheading} />
+      {/if}
     {:else if ui.sidebar === 'search'}
       <SearchPanel onopen={onsearchhit} {onopenfolder} />
     {:else}
