@@ -4,6 +4,8 @@ export interface PageSize {
   width: number;
   height: number;
   rotation: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export interface OutlineEntry {
@@ -69,6 +71,20 @@ async function flattenOutline(
   }
 }
 
+export function sizeOf(page: import('pdfjs-dist').PDFPageProxy): PageSize {
+  const view = Array.isArray(page.view) ? (page.view as number[]) : [];
+  const upright = page.getViewport({ scale: 1, rotation: 0 });
+  const x0 = view.length >= 4 ? Math.min(view[0]!, view[2]!) : 0;
+  const y0 = view.length >= 4 ? Math.min(view[1]!, view[3]!) : 0;
+  return {
+    width: upright.width,
+    height: upright.height,
+    rotation: page.rotate,
+    offsetX: x0,
+    offsetY: y0,
+  };
+}
+
 export interface OpenPdfOptions {
   password?: string;
 }
@@ -79,7 +95,7 @@ export async function openPdfDocument(
 ): Promise<PdfHandle> {
   const pdfjs = await loadPdfjs();
   const task = pdfjs.getDocument({
-    ...(typeof source === 'string' ? { url: source } : { data: source }),
+    ...(typeof source === 'string' ? { url: source } : { data: source.slice() }),
     password: options.password,
     isEvalSupported: false,
     enableXfa: false,
@@ -96,12 +112,7 @@ export async function openPdfDocument(
   const pageSizes: PageSize[] = [];
   for (let index = 1; index <= pageCount; index += 1) {
     const page = await document.getPage(index);
-    const viewport = page.getViewport({ scale: 1 });
-    pageSizes.push({
-      width: viewport.width,
-      height: viewport.height,
-      rotation: page.rotate,
-    });
+    pageSizes.push(sizeOf(page));
   }
 
   const permissions = await document.getPermissions().catch(() => null);

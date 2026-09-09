@@ -2,7 +2,13 @@
   import type { PDFPageProxy } from 'pdfjs-dist';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
-  import { piecesFrom, styleFor, type TextPiece } from '$lib/pdf/text-layer';
+  import {
+    piecesFrom,
+    scaleXFor,
+    styleFor,
+    transformOf,
+    type TextPiece,
+  } from '$lib/pdf/text-layer';
 
   interface Props {
     index: number;
@@ -20,15 +26,28 @@
   let failed = $state(false);
   let drawn = $state(false);
   let pieces = $state<TextPiece[]>([]);
+  const spans: Array<HTMLElement | null> = [];
 
   const box = $derived(canvasSize(size, scale, rotation, globalThis.devicePixelRatio ?? 1));
+
+  $effect(() => {
+    const drawnPieces = pieces;
+    if (drawnPieces.length === 0) return;
+    const nodes = spans.slice(0, drawnPieces.length);
+    const widths = nodes.map((node) => node?.offsetWidth ?? 0);
+    nodes.forEach((node, i) => {
+      if (!node) return;
+      const stretch = scaleXFor(drawnPieces[i]!.width, widths[i]!);
+      node.style.transform = transformOf(drawnPieces[i]!, stretch);
+    });
+  });
 
   $effect(() => {
     const node = canvas;
     const currentScale = scale;
     const currentRotation = rotation;
+    const currentSize = size;
     const currentIndex = index;
-    const height = box.cssHeight;
     const isLive = live;
 
     if (!node) return;
@@ -52,7 +71,8 @@
         drawn = true;
         const content = await page.getTextContent();
         if (cancelled) return;
-        pieces = piecesFrom(content.items, height, currentScale);
+        spans.length = 0;
+        pieces = piecesFrom(content.items, currentSize, currentScale, currentRotation);
       } catch {
         if (cancelled) return;
         failed = true;
@@ -78,7 +98,7 @@
   {#if live && pieces.length > 0}
     <div class="text-layer">
       {#each pieces as piece, i (i)}
-        <span style={styleFor(piece)}>{piece.text}</span>
+        <span bind:this={spans[i]} style={styleFor(piece)}>{piece.text}</span>
       {/each}
     </div>
   {/if}

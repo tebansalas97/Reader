@@ -1,3 +1,6 @@
+import { multiplyMatrix, viewportTransform, type Matrix } from './annotations/geometry';
+import type { PageSize } from './document';
+
 export interface TextPiece {
   text: string;
   left: number;
@@ -14,53 +17,66 @@ interface RawItem {
   height?: unknown;
 }
 
-function numbers(value: unknown): number[] | null {
+function numbers(value: unknown): Matrix | null {
   if (!Array.isArray(value)) return null;
   if (value.length < 6) return null;
-  return value.map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0));
+  const parsed = value
+    .slice(0, 6)
+    .map((v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0));
+  return parsed as Matrix;
 }
 
-export function pieceFrom(item: RawItem, viewportHeight: number, scale: number): TextPiece | null {
+export function pieceFrom(item: RawItem, matrix: Matrix, scale: number): TextPiece | null {
   const text = typeof item.str === 'string' ? item.str : '';
   if (text.trim().length === 0) return null;
 
   const transform = numbers(item.transform);
   if (!transform) return null;
 
-  const [a, b, , d, e, f] = transform as [number, number, number, number, number, number];
-  const fontHeight = Math.hypot(b, d) || Math.abs(d) || 1;
-  const width = typeof item.width === 'number' ? item.width : 0;
+  const placed = multiplyMatrix(matrix, transform);
+  const angle = Math.atan2(placed[1], placed[0]);
+  const height = Math.max(1, Math.hypot(placed[2], placed[3]));
+  const width = typeof item.width === 'number' ? Math.max(0, item.width * scale) : 0;
 
-  return {
-    text,
-    left: e * scale,
-    top: viewportHeight - (f + fontHeight) * scale,
-    width: Math.max(0, width * scale),
-    height: Math.max(1, fontHeight * scale),
-    angle: Math.atan2(b, a),
-  };
+  const left = angle === 0 ? placed[4] : placed[4] + height * Math.sin(angle);
+  const top = angle === 0 ? placed[5] - height : placed[5] - height * Math.cos(angle);
+
+  return { text, left, top, width, height, angle };
 }
 
 export function piecesFrom(
   items: unknown[],
-  viewportHeight: number,
+  size: PageSize,
   scale: number,
+  rotation: number,
 ): TextPiece[] {
+  const matrix = viewportTransform(size, scale, rotation);
   const pieces: TextPiece[] = [];
   for (const item of items) {
-    const piece = pieceFrom(item as RawItem, viewportHeight, scale);
+    const piece = pieceFrom(item as RawItem, matrix, scale);
     if (piece) pieces.push(piece);
   }
   return pieces;
 }
 
-export function styleFor(piece: TextPiece): string {
-  const rotation = piece.angle === 0 ? '' : ` rotate(${piece.angle}rad)`;
+export function scaleXFor(target: number, measured: number): number {
+  if (!Number.isFinite(target) || !Number.isFinite(measured)) return 1;
+  if (target <= 0 || measured <= 0) return 1;
+  return target / measured;
+}
+
+export function transformOf(piece: TextPiece, stretch = 1): string {
+  const parts = ['translateY(0)'];
+  if (piece.angle !== 0) parts.push(`rotate(${piece.angle}rad)`);
+  if (stretch !== 1) parts.push(`scaleX(${stretch.toFixed(4)})`);
+  return parts.join(' ');
+}
+
+export function styleFor(piece: TextPiece, stretch = 1): string {
   return [
     `left: ${piece.left.toFixed(2)}px`,
     `top: ${piece.top.toFixed(2)}px`,
     `font-size: ${piece.height.toFixed(2)}px`,
-    `--piece-width: ${piece.width.toFixed(2)}px`,
-    `transform: translateY(0)${rotation}`,
+    `transform: ${transformOf(piece, stretch)}`,
   ].join('; ');
 }

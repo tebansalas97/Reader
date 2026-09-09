@@ -43,6 +43,7 @@ export interface Annotation {
   ink?: Point[][];
   rect?: Rect;
   origin: 'reader' | 'file';
+  ref?: string;
 }
 
 export const QUAD_KINDS: AnnotationKind[] = ['highlight', 'underline', 'strikeout'];

@@ -41,6 +41,13 @@ describe('openPdfDocument', () => {
     expect(handle.pageSizes[1]).toMatchObject({ width: 400, height: 400 });
   });
 
+  it('leaves the bytes it was given untouched', async () => {
+    const bytes = await makePdf([{ text: 'a' }]);
+    await openBytes(bytes);
+    expect(bytes.byteLength).toBeGreaterThan(0);
+    expect(bytes[0]).toBe('%'.charCodeAt(0));
+  });
+
   it('gives every page a rotation', async () => {
     const handle = await openBytes(await makePdf([{ text: 'a' }]));
     expect(handle.pageSizes[0]?.rotation).toBe(0);
