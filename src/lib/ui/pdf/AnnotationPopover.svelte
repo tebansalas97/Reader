@@ -67,7 +67,7 @@
     rows="2"
     placeholder={t('pdf.notePlaceholder')}
     value={annotation.contents}
-    onchange={(event) => setContents(event.currentTarget.value)}
+    oninput={(event) => setContents(event.currentTarget.value)}
   ></textarea>
 
   <div class="row">

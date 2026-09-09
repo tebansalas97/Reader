@@ -22,6 +22,7 @@
   import { basename, dirname, extname, normalise } from '$lib/fs/paths';
   import { setLanguage, t } from '$lib/i18n';
   import { exportHtml } from '$lib/export/html';
+  import { setPageMargin } from '$lib/export/page-margin';
   import { printPreview } from '$lib/export/print';
   import { activeOutlineIndex, extractOutline } from '$lib/preview/outline';
   import { createSyncGuard } from '$lib/preview/scroll-sync';
@@ -399,9 +400,11 @@
         return;
       }
       await new Promise((resolve) => requestAnimationFrame(resolve));
+      const undoMargin = setPageMargin('0');
       window.addEventListener(
         'afterprint',
         () => {
+          undoMargin();
           printing = false;
           printImages = [];
         },
