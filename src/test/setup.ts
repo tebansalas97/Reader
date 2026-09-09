@@ -1,4 +1,7 @@
 import { afterEach } from 'vitest';
+import { installGraphicsStubs } from './dom-graphics';
+
+installGraphicsStubs();
 
 const noRects = {
   length: 0,
