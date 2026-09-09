@@ -80,6 +80,30 @@ Ambos se cumplen. El caso de 5 MB queda fuera de presupuesto a propósito: la
 mejora que lo arregla es virtualizar la vista previa por secciones, y está
 anotada como trabajo pendiente en la sección de riesgos del spec.
 
+## PDF y anotaciones
+
+Medido con `pdfjs-dist` 5.4 y `pdf-lib` 1.17 sobre la misma máquina, con
+documentos generados para la prueba. Son tiempos de proceso, sin contar el
+disco ni el puente con Rust.
+
+| Operación | Presupuesto | Medido |
+| --- | --- | --- |
+| Abrir un documento de 200 páginas | < 1500 ms | 69 ms |
+| Leer las anotaciones de 200 páginas | — | 4 ms |
+| Abrir un documento de 20 MB | < 1500 ms | 56 ms |
+| Escribir 20 anotaciones en 20 MB | < 2000 ms | 94 ms |
+| Verificar lo escrito antes de tocar el disco | — | 24 ms |
+
+Leer las anotaciones al abrir cuesta cuatro milisegundos en doscientas páginas
+porque las páginas ya se han pedido para conocer sus tamaños. Por eso se hace
+antes del primer dibujo: así el lienzo ya sabe cuáles no debe pintar y no hay
+un parpadeo con la anotación dibujada dos veces.
+
+El instalador pasa de 3,7 MB a 4,1 MB. pdf.js y pdf-lib viven en sus propios
+chunks (`pdf-*.js`, `es-*.js`, `write-*.js`) y no aparecen en el de entrada; se
+comprueba en cada compilación buscando `PDFDocumentLoadingTask` y `PDFHexString`
+en `dist/assets/index-*.js`.
+
 ## Qué mirar si una cifra empeora
 
 1. Tamaño del chunk de entrada en `dist/assets/`. Debe seguir habiendo chunks

@@ -13,6 +13,7 @@
     "test": "vitest run",
     "build:app": "tauri build",
     "perf": "powershell -ExecutionPolicy Bypass -File scripts/perf.ps1",
+    "fixtures": "node scripts/make-pdf-fixtures.mjs",
     "predev": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
     "prebuild": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
     "pretest": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs"

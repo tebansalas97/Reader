@@ -182,11 +182,25 @@ del archivo que Reader no entiende se conservan intactas al guardar.
 
 ### 5.6 Escritura
 
-Al guardar, `write.ts` carga los bytes originales con pdf-lib, borra las
-anotaciones que Reader había escrito antes y vuelve a escribir la lista actual.
+Al guardar, `write.ts` carga los bytes originales con pdf-lib y escribe solo la
+diferencia. Cada anotación que Reader leyó del archivo guarda la referencia del
+objeto que pdf.js le dio (`12R`), y con ella se decide una por una:
+
+- La que no ha cambiado se queda tal cual estaba, sin reescribirla.
+- La que se borró o se editó se saca del `/Annots` de su página y su objeto se
+  elimina.
+- La nueva, y la editada, se escriben desde cero.
+- Todo lo que Reader no modela (enlaces, campos de formulario, sellos, texto
+  libre) no se toca nunca, porque nunca entra en la lista.
+
+Es mejor que borrar y reescribir todo lo de Reader: el archivo cambia lo mínimo
+y una anotación ajena que Reader entiende conserva sus datos si nadie la toca.
+
 Cada anotación se escribe como un diccionario PDF real con su subtipo, y con un
 flujo de apariencia propio para que se vea igual en visores que no generan
-apariencias.
+apariencias. El color va en `/C` con cinco decimales: con dos, un color como
+`#4dabf7` vuelve del archivo como `#4cabf7` y el documento parecería tener
+cambios sin guardar nada más guardarlo.
 
 | Tipo | Subtipo PDF | Geometría |
 | --- | --- | --- |
@@ -201,6 +215,17 @@ apariencias.
 Escritura atómica: se escribe a un temporal y se renombra, como ya hace el
 guardado de Markdown. El comando `write_bytes` de Rust pasa a ser atómico, que
 hoy no lo es.
+
+### 5.6.1 Quién dibuja cada anotación
+
+pdf.js dibuja en el lienzo las anotaciones del archivo que traen apariencia. Si
+Reader dibujara además las suyas encima, una anotación ya guardada se vería dos
+veces, y borrarla o cambiarle el color no se notaría hasta guardar y reabrir.
+
+La solución es el almacén de anotaciones de pdf.js: al abrir, Reader marca con
+`noView` las anotaciones que gestiona y las dibuja él mismo en su capa. El
+lienzo sigue dibujando todo lo demás con la fidelidad del archivo, y lo que
+Reader pinta responde al momento a cualquier cambio.
 
 ### 5.7 Selección de texto y subrayado
 

@@ -112,6 +112,14 @@ describe('writeAnnotations', () => {
     expect(read?.quads?.[0]).toEqual(HIGHLIGHT.quads![0]);
   });
 
+  it('keeps a colour that is not a round number', async () => {
+    const read = await roundTrip(await makePdf([{ text: 'a' }]), [
+      { ...HIGHLIGHT, color: '#4dabf7' },
+      { ...HIGHLIGHT, id: 'b', color: '#b197fc' },
+    ]);
+    expect(read.map((annotation) => annotation.color).sort()).toEqual(['#4dabf7', '#b197fc']);
+  });
+
   it('keeps the date the annotation was made', async () => {
     const [read] = await roundTrip(await makePdf([{ text: 'a' }]), [HIGHLIGHT]);
     expect(read?.createdMs).toBe(Date.UTC(2024, 0, 2, 3, 4, 5));

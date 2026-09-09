@@ -66,6 +66,10 @@ function rounded(values: number[]): number[] {
   return values.map((value) => Math.round(value * 100) / 100);
 }
 
+function colorNumbers(color: string): number[] {
+  return hexToRgb(color).map((value) => Math.round(value * 100000) / 100000);
+}
+
 function refKey(objectNumber: number, generation: number): string {
   return `${objectNumber}R${generation === 0 ? '' : generation}`;
 }
@@ -102,7 +106,7 @@ function annotationDict(
     Subtype: SUBTYPES[annotation.kind],
     Rect: rounded(rectNumbers(bounds)),
     F: 4,
-    C: rounded(hexToRgb(annotation.color)),
+    C: colorNumbers(annotation.color),
     CA: Math.round(annotation.opacity * 100) / 100,
     Contents: lib.PDFHexString.fromText(annotation.contents),
     T: lib.PDFHexString.fromText(annotation.author),

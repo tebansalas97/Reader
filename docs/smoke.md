@@ -114,3 +114,33 @@ WebView. Recorre la lista con la compilación de release instalada, no con
     imágenes incrustadas.
 25. Exporta a PDF desde el diálogo de impresión. La interfaz no aparece en el
     resultado.
+
+## PDF
+
+26. Genera el documento de prueba con `node scripts/make-pdf-fixtures.mjs` y
+    abre `tests/fixtures/prueba.pdf`. La primera página aparece ajustada al
+    ancho y arriba del todo, no desplazada.
+27. Gira la página con los botones de la barra. El contenido gira con la caja,
+    no solo la caja.
+28. Aleja el zoom con `Ctrl` y la rueda. Las páginas se quedan centradas y
+    ninguna se ve de otro tamaño.
+29. Selecciona texto con el ratón. La selección sigue las líneas del documento.
+30. Con la herramienta de resaltar activa, selecciona una frase y suéltala. El
+    resaltado aparece encima del texto y la barra de estado pasa a «Sin
+    guardar».
+31. Prueba subrayar, tachar, el lápiz, la nota, el rectángulo y la elipse.
+32. Pulsa sobre una marca. Se abre el globo: cambia el color, escribe un
+    comentario y ciérralo con `Escape`.
+33. Selecciona una marca y pulsa `Supr`. Desaparece al momento.
+34. Guarda con `Ctrl+S`. Aparece «Anotaciones guardadas» y la barra vuelve a
+    «Guardado».
+35. Cierra la pestaña y vuelve a abrir el archivo. Las anotaciones siguen ahí,
+    en el mismo sitio y del mismo color.
+36. Guarda otra vez sin tocar nada y vuelve a abrir. No hay anotaciones
+    duplicadas.
+37. Abre en Edge y en Acrobat el PDF que acabas de guardar. Las marcas se ven
+    igual que en Reader: resaltado, subrayado, tachado, dibujo, nota,
+    rectángulo y elipse. Esta es la prueba de que las anotaciones son de
+    verdad del archivo y no un dibujo de Reader.
+38. Abre en Reader un PDF con formulario o con sellos, anótalo y guárdalo. Lo
+    que Reader no entiende sigue viéndose y sigue en el archivo.
