@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { convertFileSrc } from '@tauri-apps/api/core';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
@@ -26,6 +27,8 @@
     documentIsDirty,
     documents,
     isMarkdown,
+    isPdf,
+    kindForPath,
     type Document,
   } from '$lib/state/documents.svelte';
   import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
@@ -34,10 +37,14 @@
   import { ui } from '$lib/state/ui.svelte';
   import { registerShortcuts } from '$lib/shortcuts';
   import { loadPersonal, personalWords } from '$lib/editor/spell';
+  import type { Annotation } from '$lib/pdf/annotations/model';
+  import { openPdfDocument, PdfOpenError } from '$lib/pdf/document';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
   import Dialog from '$lib/ui/Dialog.svelte';
   import Editor from '$lib/ui/Editor.svelte';
+  import PdfToolbar from '$lib/ui/pdf/PdfToolbar.svelte';
+  import PdfView from '$lib/ui/pdf/PdfView.svelte';
   import Preview from '$lib/ui/Preview.svelte';
   import Settings from '$lib/ui/Settings.svelte';
   import Sidebar from '$lib/ui/Sidebar.svelte';
@@ -52,8 +59,14 @@
   import '$lib/ui/print.css';
 
   const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'txt'];
+  const OPENABLE_EXTENSIONS = [...MARKDOWN_EXTENSIONS, 'pdf'];
   const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp'];
-  const DIALOG_FILTERS = [{ name: 'Markdown', extensions: MARKDOWN_EXTENSIONS }];
+  const DIALOG_FILTERS = [
+    { name: 'Documentos', extensions: OPENABLE_EXTENSIONS },
+    { name: 'Markdown', extensions: MARKDOWN_EXTENSIONS },
+    { name: 'PDF', extensions: ['pdf'] },
+  ];
+  const SAVE_FILTERS = [{ name: 'Markdown', extensions: MARKDOWN_EXTENSIONS }];
 
   const appWindow = getCurrentWindow();
   const guard = createSyncGuard();
@@ -68,6 +81,7 @@
   let activeBlock = $state<{ start: number; end: number } | null>(null);
   let selectedWords = $state(0);
   let fragment = $state('');
+  let pdfScale = $state(1);
   let spellMenu = $state<{
     word: string;
     suggestions: string[];
@@ -79,6 +93,7 @@
 
   const active = $derived(documents.active);
   const activeMarkdown = $derived(isMarkdown(active) ? active : null);
+  const activePdf = $derived(isPdf(active) ? active : null);
   const outline = $derived(extractOutline(activeMarkdown?.text ?? ''));
   const activeHeading = $derived(
     activeOutlineIndex(outline, (activeMarkdown?.cursor.line ?? 1) - 1),
@@ -96,11 +111,26 @@
     try {
       const normalised = normalise(path);
       await allowAssetDir(dirname(normalised)).catch(() => undefined);
-      await documents.open(normalised);
+      if (kindForPath(normalised) === 'pdf') await openPdfTab(normalised);
+      else await documents.openMarkdown(normalised);
       await recent.load();
     } catch (error) {
-      reportError('error.openFailed', error);
+      if (error instanceof PdfOpenError) toasts.error(t(`pdf.error.${error.reason}`));
+      else reportError('error.openFailed', error);
     }
+  }
+
+  async function openPdfTab(path: string): Promise<void> {
+    const url = convertFileSrc(path);
+    const handle = await openPdfDocument(url);
+    const annotations: Annotation[] = [];
+    documents.openPdf(path, {
+      assetUrl: url,
+      pageCount: handle.pageCount,
+      annotations,
+      encrypted: handle.encrypted,
+    });
+    await handle.destroy();
   }
 
   async function openFileFlow(): Promise<void> {
@@ -158,7 +188,7 @@
     if (!doc) return 'cancelled';
     const path = await saveDialog({
       defaultPath: doc.path ?? `${doc.title}.md`,
-      filters: DIALOG_FILTERS,
+      filters: SAVE_FILTERS,
     }).catch(() => null);
     if (!path) return 'cancelled';
     try {
@@ -501,7 +531,7 @@
         void (async () => {
           for (const path of payload.paths) {
             const extension = extname(path);
-            if (MARKDOWN_EXTENSIONS.includes(extension)) await openDocument(path);
+            if (OPENABLE_EXTENSIONS.includes(extension)) await openDocument(path);
             else if (IMAGE_EXTENSIONS.includes(extension)) await insertDroppedImage(path);
           }
         })();
@@ -581,7 +611,15 @@
     />
   {/if}
 
-  {#if ui.showToolbar && !ui.zen}
+  {#if activePdf && !ui.zen}
+    <PdfToolbar
+      doc={activePdf}
+      effectiveScale={pdfScale}
+      onpage={(page) => documents.setPage(activePdf.id, page)}
+      onzoom={(zoom) => documents.setZoom(activePdf.id, zoom)}
+      onrotate={(rotation) => documents.setRotation(activePdf.id, rotation)}
+    />
+  {:else if ui.showToolbar && !ui.zen}
     <Toolbar disabled={active === null} onaction={handleAction} />
   {/if}
 
@@ -627,7 +665,13 @@
         {/if}
 
         <div class="panes">
-          {#if ui.viewMode === 'split'}
+          {#if activePdf}
+            <PdfView
+              docId={activePdf.id}
+              onfailed={(message) => toasts.error(message)}
+              onscale={(value) => (pdfScale = value)}
+            />
+          {:else if ui.viewMode === 'split'}
             <SplitPane
               ratio={ui.splitRatio}
               onratio={(value) => {
