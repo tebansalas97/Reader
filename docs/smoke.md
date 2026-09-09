@@ -163,3 +163,23 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 42. `Ctrl+P` sobre un Markdown imprime el documento entero, sin la barra de
     herramientas y sin cortar en la primera hoja.
 43. Exportar a HTML está en gris cuando el documento activo es un PDF.
+
+## Organizar páginas
+
+44. Abre un PDF y ve a la pestaña de páginas en la barra lateral. Pulsa una
+    miniatura: el visor salta a ella y queda seleccionada.
+45. Con `Ctrl` añade otra a la selección; con `Mayús` toma el rango entero.
+46. Gira una página seleccionada. Gira la miniatura y también la página en el
+    visor, no solo la vista.
+47. Arrastra una miniatura a otro sitio. Aparece la línea de destino, y al
+    soltar el documento se reordena en el visor.
+48. La barra de estado pasa a «Sin guardar» en cuanto se toca el orden.
+49. Quita una página que tenga anotaciones. Avisa de cuántas se van a perder
+    antes de hacerlo.
+50. Guarda. Vuelve a abrir el archivo: el orden, los giros y las anotaciones
+    que quedaron están como los dejaste, y las anotaciones siguen sobre su
+    página aunque la página haya cambiado de sitio.
+51. Selecciona dos páginas y extráelas. El archivo nuevo tiene solo esas dos,
+    con sus anotaciones.
+52. Cierra la app con la pestaña de páginas abierta y vuelve a abrirla: sigue
+    en la misma pestaña.

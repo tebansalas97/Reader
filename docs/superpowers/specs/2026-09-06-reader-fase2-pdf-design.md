@@ -321,6 +321,37 @@ hay anotaciones sin guardar, se recarga; si las hay, se pregunta.
 - **Manual**: abrir el PDF anotado en Acrobat y en Edge y comprobar que se ve
   igual. Esto no se puede automatizar aquí y va en la lista de comprobación.
 
+## 8.1 Etapa D: organizar páginas
+
+El documento lleva un plan de páginas: una lista que dice qué página del archivo
+va en cada sitio y con cuánto giro añadido.
+
+```ts
+interface PageEdit {
+  source: number;             // página en el archivo tal como está en disco
+  rotation: 0 | 90 | 180 | 270;
+}
+```
+
+El visor lee por el plan, no por el archivo: lo que se ve antes de guardar es
+como quedará. El plan cuenta como cambio sin guardar igual que las anotaciones.
+
+La decisión que lo hace simple es que **las anotaciones se guardan por su página
+en el archivo, no por su posición**. Una anotación de la página 3 sigue siendo de
+la página 3 aunque esa página pase a ser la primera. Al guardar, las páginas se
+reordenan moviendo los mismos objetos de página, y sus anotaciones viajan con
+ellas porque cuelgan de la página, no del número. Así no hay que renumerar nada
+y la comparación que decide qué reescribir sigue valiendo.
+
+Quitar una página con anotaciones sí las pierde, y por eso se avisa antes con la
+cuenta exacta.
+
+Guardar aplica el plan y las anotaciones en la misma pasada de pdf-lib
+(`save.ts`), y comprueba el resultado abriéndolo antes de tocar el disco.
+
+Extraer páginas escribe un archivo nuevo con copias de las elegidas, con sus
+anotaciones, y no toca el original.
+
 ## 9. Fase 3, para que conste
 
 Editar el texto existente. Alcance realista: seleccionar un fragmento de una

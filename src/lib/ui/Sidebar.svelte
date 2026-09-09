@@ -73,6 +73,9 @@
   ];
 
   const tabs = $derived(ALL_TABS.filter((tab) => pdf !== null || !tab.pdfOnly));
+  const panel = $derived(
+    pdf === null && (ui.sidebar === 'pages' || ui.sidebar === 'marks') ? 'files' : ui.sidebar,
+  );
 
   function startResize(event: PointerEvent): void {
     dragging = true;
@@ -96,18 +99,18 @@
     {#each tabs as tab (tab.panel)}
       <button
         role="tab"
-        class:active={ui.sidebar === tab.panel}
-        aria-selected={ui.sidebar === tab.panel}
+        class:active={panel === tab.panel}
+        aria-selected={panel === tab.panel}
         title={t(tab.label)}
         aria-label={t(tab.label)}
-        onclick={() => (ui.sidebar = tab.panel)}
+        onclick={() => ui.useSidebar(tab.panel)}
       >
         <svg viewBox="0 0 16 16" aria-hidden="true"><path d={tab.icon} /></svg>
       </button>
     {/each}
   </div>
   <div class="content">
-    {#if ui.sidebar === 'files'}
+    {#if panel === 'files'}
       {#if ui.folder === null}
         <div class="empty">
           <p>{t('sidebar.empty')}</p>
@@ -117,7 +120,7 @@
         <p class="folder" title={ui.folder}>{basename(ui.folder)}</p>
         <FileTree {entries} {activePath} {onopen} />
       {/if}
-    {:else if ui.sidebar === 'pages' && pdf}
+    {:else if panel === 'pages' && pdf}
       <PdfThumbnails
         handle={pdf.handle}
         plan={pdf.plan}
@@ -130,21 +133,22 @@
         onremove={pdf.onpageremove}
         onextract={pdf.onpageextract}
       />
-    {:else if ui.sidebar === 'marks' && pdf}
+    {:else if panel === 'marks' && pdf}
       <AnnotationsPanel
         annotations={pdf.annotations}
+        plan={pdf.plan}
         handle={pdf.handle}
         selectedId={pdf.selectedAnnotation}
         onselect={pdf.onselectannotation}
         ondelete={pdf.ondeleteannotation}
       />
-    {:else if ui.sidebar === 'outline'}
+    {:else if panel === 'outline'}
       {#if pdf}
         <PdfOutline entries={pdf.outline} currentPage={pdf.page} onselect={pdf.onpage} />
       {:else}
         <Outline items={outline} {activeIndex} onselect={onheading} />
       {/if}
-    {:else if ui.sidebar === 'search'}
+    {:else if panel === 'search'}
       <SearchPanel onopen={onsearchhit} {onopenfolder} />
     {:else}
       <HistoryPanel

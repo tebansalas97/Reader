@@ -177,7 +177,7 @@
 
   async function setFolder(folder: string): Promise<void> {
     ui.folder = folder;
-    ui.sidebar = 'files';
+    ui.useSidebar('files');
     prefs.update({ lastFolder: folder });
     await allowAssetDir(folder).catch(() => undefined);
     entries = await listDir(folder, 2).catch(() => []);
@@ -706,6 +706,7 @@
       ui.splitRatio = prefs.current.splitRatio;
       ui.scrollSync = prefs.current.scrollSync;
       ui.showToolbar = prefs.current.showToolbar;
+      ui.sidebar = prefs.current.sidebarPanel;
       loadPersonal(prefs.current.personalDictionary);
       await recent.load();
       if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder);

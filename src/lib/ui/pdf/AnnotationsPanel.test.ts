@@ -1,6 +1,7 @@
 import { render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { rectToQuad } from '$lib/pdf/annotations/geometry';
+import { initialPlan } from '$lib/pdf/pages';
 import type { Annotation, AnnotationKind } from '$lib/pdf/annotations/model';
 import AnnotationsPanel from './AnnotationsPanel.svelte';
 
@@ -24,6 +25,7 @@ const QUADS = [rectToQuad({ x: 60, y: 668, width: 200, height: 13 })];
 function props(overrides: Record<string, unknown> = {}) {
   return {
     annotations: [] as Annotation[],
+    plan: initialPlan(6),
     handle: null,
     selectedId: null,
     onselect: () => undefined,
@@ -107,6 +109,27 @@ describe('AnnotationsPanel', () => {
     );
     (container.querySelector('.go') as HTMLButtonElement).click();
     expect(onselect).toHaveBeenCalledWith('a1', 5);
+  });
+
+  it('lists an annotation by where its page sits now, not by its page in the file', () => {
+    const plan = [
+      { source: 3, rotation: 0 as const },
+      { source: 1, rotation: 0 as const },
+    ];
+    const { container } = render(
+      AnnotationsPanel,
+      props({ annotations: [annotation('note', { page: 3, contents: 'la tercera' })], plan }),
+    );
+    expect(container.querySelector('.page')?.textContent).toContain('1');
+  });
+
+  it('leaves out an annotation whose page is about to go', () => {
+    const plan = [{ source: 2, rotation: 0 as const }];
+    const { container } = render(
+      AnnotationsPanel,
+      props({ annotations: [annotation('note', { page: 1 })], plan }),
+    );
+    expect(container.querySelector('.empty')).not.toBeNull();
   });
 
   it('deletes from the list', () => {

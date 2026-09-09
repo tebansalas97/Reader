@@ -27,6 +27,7 @@ export interface Prefs {
   personalDictionary: string[];
   annotationAuthor: string;
   annotationColor: string;
+  sidebarPanel: 'files' | 'outline' | 'search' | 'history' | 'pages' | 'marks' | null;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -56,6 +57,7 @@ export const DEFAULT_PREFS: Prefs = {
   personalDictionary: [],
   annotationAuthor: '',
   annotationColor: '#ffd400',
+  sidebarPanel: null,
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -112,6 +114,11 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     annotationColor: /^#[0-9a-fA-F]{6}$/.test(String(stored.annotationColor ?? ''))
       ? String(stored.annotationColor)
       : d.annotationColor,
+    sidebarPanel: (['files', 'outline', 'search', 'history', 'pages', 'marks'] as const).includes(
+      stored.sidebarPanel as never,
+    )
+      ? (stored.sidebarPanel as Prefs['sidebarPanel'])
+      : null,
   };
 }
 

@@ -1,4 +1,5 @@
 import type { AnnotationKind } from '$lib/pdf/annotations/model';
+import { prefs } from './prefs.svelte';
 
 export type ViewMode = 'editor' | 'split' | 'preview';
 export type AnnotationTool = 'none' | AnnotationKind;
@@ -37,8 +38,13 @@ class UiStore {
     this.viewMode = ORDER[(index + 1) % ORDER.length]!;
   }
 
+  useSidebar(panel: SidebarPanel): void {
+    this.sidebar = panel;
+    prefs.update({ sidebarPanel: panel });
+  }
+
   toggleSidebar(panel: Exclude<SidebarPanel, null>): void {
-    this.sidebar = this.sidebar === panel ? null : panel;
+    this.useSidebar(this.sidebar === panel ? null : panel);
   }
 
   toggleZen(): void {

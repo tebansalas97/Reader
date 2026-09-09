@@ -1,18 +1,20 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import type { Annotation } from '$lib/pdf/annotations/model';
-  import { labelFor, pagesWithQuads, sortForList, textInQuads } from '$lib/pdf/annotations/summary';
+  import { labelFor, pagesWithQuads, textInQuads } from '$lib/pdf/annotations/summary';
   import type { PdfHandle } from '$lib/pdf/document';
+  import { positionOfSource, type PageEdit } from '$lib/pdf/pages';
 
   interface Props {
     annotations: Annotation[];
+    plan: PageEdit[];
     handle: PdfHandle | null;
     selectedId: string | null;
     onselect: (id: string, page: number) => void;
     ondelete: (id: string) => void;
   }
 
-  const { annotations, handle, selectedId, onselect, ondelete }: Props = $props();
+  const { annotations, plan, handle, selectedId, onselect, ondelete }: Props = $props();
 
   const ICONS: Record<string, string> = {
     highlight: 'M3 12h10v2H3zM5 3h6l1 7H4z',
@@ -27,12 +29,17 @@
   let items = $state<Map<number, unknown[]>>(new Map());
   let list = $state<HTMLElement | null>(null);
 
-  const sorted = $derived(sortForList(annotations));
+  const placed = $derived(
+    annotations
+      .map((annotation) => ({ annotation, page: positionOfSource(plan, annotation.page) }))
+      .filter((entry) => entry.page > 0)
+      .sort((a, b) => a.page - b.page),
+  );
   const groups = $derived(
-    sorted.reduce((list, annotation) => {
+    placed.reduce((list, entry) => {
       const last = list[list.length - 1];
-      if (last && last.page === annotation.page) last.marks.push(annotation);
-      else list.push({ page: annotation.page, marks: [annotation] });
+      if (last && last.page === entry.page) last.marks.push(entry.annotation);
+      else list.push({ page: entry.page, marks: [entry.annotation] });
       return list;
     }, [] as Array<{ page: number; marks: Annotation[] }>),
   );
@@ -79,7 +86,7 @@
   }
 </script>
 
-{#if annotations.length === 0}
+{#if placed.length === 0}
   <div class="empty">
     <p>{t('pdf.noAnnotations')}</p>
     <p class="hint">{t('pdf.annotationsHint')}</p>
@@ -92,7 +99,11 @@
         <ul class="marks">
           {#each group.marks as mark (mark.id)}
             <li class="mark" class:on={mark.id === selectedId}>
-              <button class="go" title={t('pdf.goToMark')} onclick={() => onselect(mark.id, mark.page)}>
+              <button
+                class="go"
+                title={t('pdf.goToMark')}
+                onclick={() => onselect(mark.id, group.page)}
+              >
                 <span class="dot" style="--dot: {mark.color}">
                   <svg viewBox="0 0 16 16" aria-hidden="true">
                     <path d={ICONS[mark.kind] ?? ICONS.note} />
