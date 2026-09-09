@@ -1,4 +1,7 @@
+import type { AnnotationKind } from '$lib/pdf/annotations/model';
+
 export type ViewMode = 'editor' | 'split' | 'preview';
+export type AnnotationTool = 'none' | AnnotationKind;
 export type SidebarPanel =
   | 'files'
   | 'outline'
@@ -24,6 +27,8 @@ class UiStore {
   historyStamp = $state(0);
   spellState = $state<'off' | 'loading' | 'ready' | 'failed'>('off');
   snapshotPreview = $state<{ text: string; label: string } | null>(null);
+  annotationTool = $state<AnnotationTool>('none');
+  selectedAnnotation = $state<string | null>(null);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);
@@ -40,6 +45,11 @@ class UiStore {
 
   toggleScrollSync(): void {
     this.scrollSync = !this.scrollSync;
+  }
+
+  useTool(tool: AnnotationTool): void {
+    this.annotationTool = this.annotationTool === tool ? 'none' : tool;
+    if (this.annotationTool !== 'none') this.selectedAnnotation = null;
   }
 
   toggleToolbar(): void {

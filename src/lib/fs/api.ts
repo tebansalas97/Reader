@@ -48,6 +48,25 @@ export function readBytes(path: string): Promise<number[]> {
   return call<number[]>('read_bytes', { path });
 }
 
+export async function readBytesRaw(path: string): Promise<Uint8Array> {
+  try {
+    const body = await invoke<ArrayBuffer | number[]>('read_bytes_raw', { path });
+    return body instanceof ArrayBuffer ? new Uint8Array(body) : Uint8Array.from(body);
+  } catch (raw) {
+    throw toReaderError(raw);
+  }
+}
+
+export async function writeBytesRaw(path: string, bytes: Uint8Array): Promise<number> {
+  try {
+    return await invoke<number>('write_bytes_raw', bytes, {
+      headers: { path: encodeURIComponent(path) },
+    });
+  } catch (raw) {
+    throw toReaderError(raw);
+  }
+}
+
 export function exists(path: string): Promise<boolean> {
   return call<boolean>('exists', { path });
 }

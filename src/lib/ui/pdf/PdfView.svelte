@@ -1,5 +1,14 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import type { Annotation } from '$lib/pdf/annotations/model';
+  import { paintBox } from '$lib/pdf/annotations/paint';
+  import { quadsFromRects, type RectLike } from '$lib/pdf/annotations/quads';
+  import {
+    createAnnotation,
+    groupByPage,
+    type PageBox,
+  } from '$lib/pdf/annotations/selection';
+  import { readAnnotations } from '$lib/pdf/annotations/read';
   import { openPdfDocument, PdfOpenError, type PdfHandle } from '$lib/pdf/document';
   import { scaleFor } from '$lib/pdf/render';
   import { offsetOfPage, visibleRange } from '$lib/pdf/virtual';
@@ -12,16 +21,41 @@
     widestPage,
   } from '$lib/pdf/zoom';
   import { documents, type PdfDocument } from '$lib/state/documents.svelte';
+  import type { AnnotationTool } from '$lib/state/ui.svelte';
+  import AnnotationPopover from './AnnotationPopover.svelte';
   import PdfPage from './PdfPage.svelte';
 
   interface Props {
     docId: string;
     onready?: (handle: PdfHandle) => void;
+    onannotations?: (annotations: Annotation[]) => void;
     onfailed?: (message: string) => void;
     onscale?: (scale: number) => void;
+    tool?: AnnotationTool;
+    color?: string;
+    author?: string;
+    selectedId?: string | null;
+    oncreate?: (annotations: Annotation[]) => void;
+    onselect?: (id: string | null) => void;
+    onchange?: (annotation: Annotation) => void;
+    ondelete?: (id: string) => void;
   }
 
-  const { docId, onready, onfailed, onscale }: Props = $props();
+  const {
+    docId,
+    onready,
+    onannotations,
+    onfailed,
+    onscale,
+    tool = 'none',
+    color = '#ffd400',
+    author = '',
+    selectedId = null,
+    oncreate,
+    onselect,
+    onchange,
+    ondelete,
+  }: Props = $props();
 
   const GAP = 16;
   const PADDING = 24;
@@ -58,6 +92,19 @@
 
   const heights = $derived(pageHeights(sizes, scale, rotation));
   const range = $derived(visibleRange(heights, scrollTop - PADDING, viewportHeight, 2, GAP));
+  const annotations = $derived(doc?.annotations ?? []);
+  const byPage = $derived(
+    annotations.reduce((map, annotation) => {
+      const list = map.get(annotation.page);
+      if (list) list.push(annotation);
+      else map.set(annotation.page, [annotation]);
+      return map;
+    }, new Map<number, Annotation[]>()),
+  );
+
+  const selected = $derived(annotations.find((entry) => entry.id === selectedId) ?? null);
+  let anchor = $state<{ x: number; y: number } | null>(null);
+
   const stripWidth = $derived(
     Math.max(viewportWidth, contentWidth(sizes, scale, rotation) + PADDING * 2),
   );
@@ -79,6 +126,13 @@
           await opened.destroy();
           return;
         }
+        const found = await readAnnotations(opened).catch(() => []);
+        if (cancelled) {
+          await opened.destroy();
+          return;
+        }
+        opened.hideFromCanvas(found.map((annotation) => annotation.ref ?? ''));
+        onannotations?.(found);
         handle = opened;
         loading = false;
         onready?.(opened);
@@ -177,6 +231,95 @@
     documents.setZoom(docId, next);
   }
 
+  $effect(() => {
+    const annotation = selected;
+    const currentScale = scale;
+    const currentRotation = rotation;
+    const node = scroller;
+    void scrollTop;
+
+    if (!annotation || !node) {
+      anchor = null;
+      return;
+    }
+
+    const size = sizes[annotation.page - 1];
+    const element = node.querySelector<HTMLElement>(`.page[data-page="${annotation.page}"]`);
+    const box = size ? paintBox(annotation, size, currentScale, currentRotation) : null;
+    if (!element || !box) {
+      anchor = null;
+      return;
+    }
+
+    const rect = element.getBoundingClientRect();
+    anchor = { x: rect.left + box.x + box.width / 2, y: rect.top + box.y + box.height };
+  });
+
+  $effect(() => {
+    const id: string | null = selectedId;
+    if (id === null) return;
+
+    function onKeyDown(event: KeyboardEvent): void {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      event.preventDefault();
+      ondelete?.(id as string);
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  function quadTool(): boolean {
+    return tool === 'highlight' || tool === 'underline' || tool === 'strikeout';
+  }
+
+  function pageBoxes(): PageBox[] {
+    const node = scroller;
+    if (!node) return [];
+    return [...node.querySelectorAll<HTMLElement>('.page[data-page]')].map((element) => ({
+      page: Number(element.dataset.page),
+      rect: element.getBoundingClientRect(),
+    }));
+  }
+
+  function selectionRects(): RectLike[] {
+    const selection = globalThis.getSelection?.();
+    if (!selection || selection.isCollapsed) return [];
+    const rects: RectLike[] = [];
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      rects.push(...selection.getRangeAt(index).getClientRects());
+    }
+    return rects;
+  }
+
+  function onMouseUp(): void {
+    if (!quadTool() || tool === 'none') return;
+    const rects = selectionRects();
+    if (rects.length === 0) return;
+
+    const boxes = pageBoxes();
+    const made: Annotation[] = [];
+    for (const [page, list] of groupByPage(rects, boxes)) {
+      const size = sizes[page - 1];
+      const box = boxes.find((entry) => entry.page === page);
+      if (!size || !box) continue;
+      const quads = quadsFromRects(list, box.rect, size, rotation);
+      const annotation = createAnnotation({ kind: tool, page, color, author, quads });
+      if (annotation) made.push(annotation);
+    }
+
+    if (made.length === 0) return;
+    globalThis.getSelection?.()?.removeAllRanges();
+    oncreate?.(made);
+  }
+
+  function onPointerDown(): void {
+    if (selectedId !== null) onselect?.(null);
+  }
+
   export function setZoomMode(mode: PdfDocument['zoom']): void {
     documents.setZoom(docId, mode);
   }
@@ -190,7 +333,15 @@
   }
 </script>
 
-<div class="viewer" bind:this={scroller} onscroll={onScroll} onwheel={onWheel}>
+<div
+  class="viewer"
+  bind:this={scroller}
+  onscroll={onScroll}
+  onwheel={onWheel}
+  onmouseup={onMouseUp}
+  onpointerdown={onPointerDown}
+  role="presentation"
+>
   {#if loading}
     <p class="note">{t('pdf.loading')}</p>
   {:else if handle}
@@ -203,11 +354,29 @@
           {rotation}
           live={index >= range.renderFirst && index <= range.renderLast}
           getPage={(n) => handle!.page(n)}
+          annotations={byPage.get(index + 1) ?? []}
+          {tool}
+          {color}
+          {author}
+          {selectedId}
+          oncreate={(annotation) => oncreate?.([annotation])}
+          onselect={(id) => onselect?.(id)}
         />
       {/each}
     </div>
   {/if}
 </div>
+
+{#if selected && anchor}
+  <AnnotationPopover
+    annotation={selected}
+    x={anchor.x}
+    y={anchor.y}
+    onchange={(annotation) => onchange?.(annotation)}
+    ondelete={(id) => ondelete?.(id)}
+    onclose={() => onselect?.(null)}
+  />
+{/if}
 
 <style>
   .viewer {

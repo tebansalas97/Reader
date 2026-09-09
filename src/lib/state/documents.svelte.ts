@@ -2,7 +2,11 @@ import { pushRecent, readText, unwatch, watch, writeText } from '$lib/fs/api';
 import type { LineEnding } from '$lib/fs/api-types';
 import { extname, normalise, titleFromPath } from '$lib/fs/paths';
 import type { Annotation } from '$lib/pdf/annotations/model';
-import { sameAnnotations } from '$lib/pdf/annotations/model';
+import {
+  replaceAnnotation,
+  sameAnnotations,
+  withoutAnnotation,
+} from '$lib/pdf/annotations/model';
 
 export const LARGE_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -246,6 +250,28 @@ class DocumentsStore {
   setAnnotations(id: string, annotations: Annotation[]): void {
     const doc = this.pdfById(id);
     if (doc) doc.annotations = annotations;
+  }
+
+  loadAnnotations(id: string, annotations: Annotation[]): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    doc.annotations = annotations;
+    doc.savedAnnotations = annotations.map((a) => ({ ...a }));
+  }
+
+  addAnnotation(id: string, annotation: Annotation): void {
+    const doc = this.pdfById(id);
+    if (doc) doc.annotations = [...doc.annotations, annotation];
+  }
+
+  updateAnnotation(id: string, annotation: Annotation): void {
+    const doc = this.pdfById(id);
+    if (doc) doc.annotations = replaceAnnotation(doc.annotations, annotation);
+  }
+
+  removeAnnotation(id: string, annotationId: string): void {
+    const doc = this.pdfById(id);
+    if (doc) doc.annotations = withoutAnnotation(doc.annotations, annotationId);
   }
 
   markPdfSaved(id: string, modifiedMs: number): void {

@@ -11,8 +11,10 @@
     ReaderError,
     saveAsset,
     snapshotDocument,
+    readBytesRaw,
     startupPaths,
     writeBytes,
+    writeBytesRaw,
     writeText,
   } from '$lib/fs/api';
   import type { Entry } from '$lib/fs/api-types';
@@ -28,6 +30,7 @@
     documents,
     isMarkdown,
     isPdf,
+    type PdfDocument,
     kindForPath,
     type Document,
   } from '$lib/state/documents.svelte';
@@ -38,6 +41,7 @@
   import { registerShortcuts } from '$lib/shortcuts';
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
+  import { readAnnotations } from '$lib/pdf/annotations/read';
   import {
     openPdfDocument,
     PdfOpenError,
@@ -169,7 +173,56 @@
     return saveDocument(doc);
   }
 
+  function applyColor(color: string): void {
+    prefs.update({ annotationColor: color });
+    const id = ui.selectedAnnotation;
+    const doc = activePdf;
+    if (!id || !doc) return;
+    const annotation = doc.annotations.find((entry) => entry.id === id);
+    if (annotation) documents.updateAnnotation(doc.id, { ...annotation, color });
+  }
+
+  async function savePdf(doc: PdfDocument): Promise<'saved' | 'cancelled'> {
+    if (doc.path === null) return 'cancelled';
+    saving = true;
+    try {
+      const current = $state.snapshot(doc.annotations) as Annotation[];
+      const original = $state.snapshot(doc.savedAnnotations) as Annotation[];
+      const bytes = await readBytesRaw(doc.path);
+      const { writeAnnotations } = await import('$lib/pdf/annotations/write');
+      const next = await writeAnnotations(bytes, current, original);
+
+      const check = await openPdfDocument(next);
+      const fresh = await readAnnotations(check).catch(() => []);
+      const sound = check.pageCount === doc.pageCount && fresh.length === current.length;
+      await check.destroy().catch(() => undefined);
+      if (!sound) {
+        toasts.error(t('pdf.verifyFailed'));
+        return 'cancelled';
+      }
+
+      if (prefs.current.localHistory) {
+        await snapshotDocument(doc.path, JSON.stringify(current, null, 1)).catch(() => undefined);
+        ui.historyStamp += 1;
+      }
+
+      const modifiedMs = await writeBytesRaw(doc.path, next);
+      documents.loadAnnotations(doc.id, fresh);
+      documents.markPdfSaved(doc.id, modifiedMs);
+      ui.selectedAnnotation = null;
+      pdfHandle?.hideFromCanvas(fresh.map((annotation) => annotation.ref ?? ''));
+      toasts.push(t('pdf.saved'));
+      return 'saved';
+    } catch (error) {
+      reportError('pdf.saveFailed', error);
+      return 'cancelled';
+    } finally {
+      saving = false;
+    }
+  }
+
   async function saveDocument(doc: Document): Promise<'saved' | 'cancelled'> {
+    if (doc.kind === 'pdf') return savePdf(doc);
     saving = true;
     try {
       if (prefs.current.formatTablesOnSave && doc.id === documents.activeId) {
@@ -417,6 +470,8 @@
       toggleZen: () => ui.toggleZen(),
       exitZen: () => {
         if (spellMenu !== null) spellMenu = null;
+        else if (ui.selectedAnnotation !== null) ui.selectedAnnotation = null;
+        else if (ui.annotationTool !== 'none') ui.annotationTool = 'none';
         else if (ui.snapshotPreview !== null) ui.snapshotPreview = null;
         else if (ui.diagram !== null) ui.diagram = null;
         else if (ui.paletteOpen) ui.paletteOpen = false;
@@ -639,9 +694,13 @@
     <PdfToolbar
       doc={activePdf}
       effectiveScale={pdfScale}
+      tool={ui.annotationTool}
+      color={prefs.current.annotationColor}
       onpage={(page) => documents.setPage(activePdf.id, page)}
       onzoom={(zoom) => documents.setZoom(activePdf.id, zoom)}
       onrotate={(rotation) => documents.setRotation(activePdf.id, rotation)}
+      ontool={(tool) => ui.useTool(tool)}
+      oncolor={(color) => applyColor(color)}
     />
   {:else if ui.showToolbar && !ui.zen}
     <Toolbar disabled={active === null} onaction={handleAction} />
@@ -700,8 +759,23 @@
           {#if activePdf}
             <PdfView
               docId={activePdf.id}
+              tool={ui.annotationTool}
+              color={prefs.current.annotationColor}
+              author={prefs.current.annotationAuthor}
+              selectedId={ui.selectedAnnotation}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
+              onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}
+              oncreate={(made) => {
+                for (const annotation of made) documents.addAnnotation(activePdf.id, annotation);
+                ui.selectedAnnotation = made.length === 1 ? made[0]!.id : null;
+              }}
+              onselect={(id) => (ui.selectedAnnotation = id)}
+              onchange={(annotation) => documents.updateAnnotation(activePdf.id, annotation)}
+              ondelete={(id) => {
+                documents.removeAnnotation(activePdf.id, id);
+                ui.selectedAnnotation = null;
+              }}
               onready={(handle) => {
                 pdfHandle = handle;
                 void handle.outline().then((entries) => (pdfOutline = entries));

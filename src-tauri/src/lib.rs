@@ -50,6 +50,8 @@ pub fn run() {
             commands::fs::write_text,
             commands::fs::read_bytes,
             commands::fs::write_bytes,
+            commands::fs::read_bytes_raw,
+            commands::fs::write_bytes_raw,
             commands::fs::exists,
             commands::dir::list_dir,
             commands::search::search_folder,

@@ -1,5 +1,5 @@
-import { quadBounds } from './geometry';
 import { boundsOf, type Annotation, type Rect } from './model';
+import { lineRects, quadRects, STRIKEOUT_POSITION, UNDERLINE_POSITION } from './shapes';
 
 export const INK_WIDTH = 2;
 export const SHAPE_WIDTH = 1.5;
@@ -31,10 +31,6 @@ export function pdfDate(ms: number): string {
     pad(date.getUTCSeconds()),
     'Z',
   ].join('');
-}
-
-function quadRects(annotation: Annotation): Rect[] {
-  return (annotation.quads ?? []).map(quadBounds).filter((rect) => rect.width > 0);
 }
 
 function padded(rect: Rect, padding: number): Rect {
@@ -82,18 +78,9 @@ function highlightStream(annotation: Annotation): string {
 }
 
 function lineStream(annotation: Annotation, position: number): string {
-  const rects = quadRects(annotation);
+  const rects = lineRects(annotation, position);
   if (rects.length === 0) return '';
-  const lines = rects.map((rect) => {
-    const thickness = Math.max(0.6, rect.height * 0.06);
-    return rectPath({
-      x: rect.x,
-      y: rect.y + rect.height * position,
-      width: rect.width,
-      height: thickness,
-    });
-  });
-  return [fillColor(annotation.color), ...lines, 'f'].join('\n');
+  return [fillColor(annotation.color), ...rects.map(rectPath), 'f'].join('\n');
 }
 
 function inkStream(annotation: Annotation): string {
@@ -201,9 +188,9 @@ export function appearanceStream(annotation: Annotation): string {
     case 'highlight':
       return highlightStream(annotation);
     case 'underline':
-      return lineStream(annotation, 0.04);
+      return lineStream(annotation, UNDERLINE_POSITION);
     case 'strikeout':
-      return lineStream(annotation, 0.42);
+      return lineStream(annotation, STRIKEOUT_POSITION);
     case 'ink':
       return inkStream(annotation);
     case 'rect':

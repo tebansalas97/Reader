@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PDFPageProxy } from 'pdfjs-dist';
+  import type { Annotation } from '$lib/pdf/annotations/model';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
   import {
@@ -9,6 +10,8 @@
     transformOf,
     type TextPiece,
   } from '$lib/pdf/text-layer';
+  import type { AnnotationTool } from '$lib/state/ui.svelte';
+  import AnnotationLayer from './AnnotationLayer.svelte';
 
   interface Props {
     index: number;
@@ -18,9 +21,31 @@
     live: boolean;
     getPage: (index: number) => Promise<PDFPageProxy>;
     onfailed?: (index: number) => void;
+    annotations?: Annotation[];
+    tool?: AnnotationTool;
+    color?: string;
+    author?: string;
+    selectedId?: string | null;
+    oncreate?: (annotation: Annotation) => void;
+    onselect?: (id: string | null) => void;
   }
 
-  const { index, size, scale, rotation, live, getPage, onfailed }: Props = $props();
+  const {
+    index,
+    size,
+    scale,
+    rotation,
+    live,
+    getPage,
+    onfailed,
+    annotations = [],
+    tool = 'none',
+    color = '#ffd400',
+    author = '',
+    selectedId = null,
+    oncreate,
+    onselect,
+  }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
   let failed = $state(false);
@@ -101,6 +126,21 @@
         <span bind:this={spans[i]} style={styleFor(piece)}>{piece.text}</span>
       {/each}
     </div>
+  {/if}
+  {#if live}
+    <AnnotationLayer
+      page={index + 1}
+      {size}
+      {scale}
+      {rotation}
+      {annotations}
+      {tool}
+      {color}
+      {author}
+      {selectedId}
+      oncreate={(annotation) => oncreate?.(annotation)}
+      onselect={(id) => onselect?.(id)}
+    />
   {/if}
   {#if !drawn || failed}
     <div class="placeholder">

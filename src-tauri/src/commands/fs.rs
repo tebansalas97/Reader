@@ -137,6 +137,55 @@ pub async fn exists(path: String) -> bool {
     Path::new(&path).exists()
 }
 
+pub fn decode_percent(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == b'%' {
+            if index + 2 >= bytes.len() {
+                return None;
+            }
+            let hex = std::str::from_utf8(&bytes[index + 1..index + 3]).ok()?;
+            out.push(u8::from_str_radix(hex, 16).ok()?);
+            index += 3;
+        } else {
+            out.push(bytes[index]);
+            index += 1;
+        }
+    }
+    String::from_utf8(out).ok()
+}
+
+#[tauri::command]
+pub async fn write_bytes_raw(request: tauri::ipc::Request<'_>) -> AppResult<u64> {
+    let path = request
+        .headers()
+        .get("path")
+        .and_then(|value| value.to_str().ok())
+        .and_then(decode_percent)
+        .ok_or_else(|| AppError::new(ErrorKind::Io, "ruta no valida"))?;
+
+    let bytes = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        _ => return Err(AppError::new(ErrorKind::Io, "se esperaban bytes")),
+    };
+
+    tauri::async_runtime::spawn_blocking(move || write_bytes_sync(&path, &bytes))
+        .await
+        .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn read_bytes_raw(path: String) -> AppResult<tauri::ipc::Response> {
+    let bytes = tauri::async_runtime::spawn_blocking(move || {
+        fs::read(&path).map_err(|e| AppError::from_io(e, &path))
+    })
+    .await
+    .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()))??;
+    Ok(tauri::ipc::Response::new(bytes))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,6 +193,29 @@ mod tests {
 
     fn tmp() -> tempfile::TempDir {
         tempfile::tempdir().unwrap()
+    }
+
+    #[test]
+    fn decodes_a_plain_path() {
+        assert_eq!(decode_percent("C:/notas/a.pdf").unwrap(), "C:/notas/a.pdf");
+    }
+
+    #[test]
+    fn decodes_a_path_with_spaces_and_accents() {
+        assert_eq!(
+            decode_percent("C:/mis%20notas/canci%C3%B3n.pdf").unwrap(),
+            "C:/mis notas/canción.pdf"
+        );
+    }
+
+    #[test]
+    fn refuses_a_truncated_escape() {
+        assert!(decode_percent("C:/a%2").is_none());
+    }
+
+    #[test]
+    fn refuses_an_escape_that_is_not_hex() {
+        assert!(decode_percent("C:/a%zz").is_none());
     }
 
     #[test]

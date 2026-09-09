@@ -1,17 +1,44 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import type { AnnotationKind } from '$lib/pdf/annotations/model';
+  import { PALETTE } from '$lib/pdf/annotations/palette';
   import { nextZoomStep } from '$lib/pdf/render';
   import type { PdfDocument } from '$lib/state/documents.svelte';
+  import type { AnnotationTool } from '$lib/state/ui.svelte';
 
   interface Props {
     doc: PdfDocument;
     effectiveScale: number;
+    tool: AnnotationTool;
+    color: string;
     onpage: (page: number) => void;
     onzoom: (zoom: PdfDocument['zoom']) => void;
     onrotate: (rotation: PdfDocument['rotation']) => void;
+    ontool: (tool: AnnotationTool) => void;
+    oncolor: (color: string) => void;
   }
 
-  const { doc, effectiveScale, onpage, onzoom, onrotate }: Props = $props();
+  const {
+    doc,
+    effectiveScale,
+    tool,
+    color,
+    onpage,
+    onzoom,
+    onrotate,
+    ontool,
+    oncolor,
+  }: Props = $props();
+
+  const TOOLS: Array<{ kind: AnnotationKind; path: string }> = [
+    { kind: 'highlight', path: 'M3 12h10v2H3zM5 3h6l1 7H4z' },
+    { kind: 'underline', path: 'M5 2v5a3 3 0 006 0V2M4 14h8' },
+    { kind: 'strikeout', path: 'M5 3v4a3 3 0 006 0V3M3 8h10M8 10v3' },
+    { kind: 'ink', path: 'M3 13c3 1 4-6 7-6s2 4 3 4' },
+    { kind: 'note', path: 'M3 3h10v7H7l-3 3v-3H3z' },
+    { kind: 'rect', path: 'M3 4h10v8H3z' },
+    { kind: 'ellipse', path: 'M8 4c3 0 5 1.8 5 4s-2 4-5 4-5-1.8-5-4 2-4 5-4z' },
+  ];
 
   let pageInput = $state('');
 
@@ -125,6 +152,38 @@
     </button>
   </div>
 
+  <div class="sep"></div>
+
+  <div class="group">
+    {#each TOOLS as entry (entry.kind)}
+      <button
+        class="tool"
+        class:on={tool === entry.kind}
+        title={t(`pdf.tool.${entry.kind}`)}
+        aria-label={t(`pdf.tool.${entry.kind}`)}
+        aria-pressed={tool === entry.kind}
+        onclick={() => ontool(entry.kind)}
+      >
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d={entry.path} /></svg>
+      </button>
+    {/each}
+  </div>
+
+  {#if tool !== 'none'}
+    <div class="group colors" aria-label={t('pdf.color')}>
+      {#each PALETTE as swatch (swatch)}
+        <button
+          class="swatch"
+          class:on={swatch.toLowerCase() === color.toLowerCase()}
+          style="--swatch: {swatch}"
+          title={swatch}
+          aria-label={swatch}
+          onclick={() => oncolor(swatch)}
+        ></button>
+      {/each}
+    </div>
+  {/if}
+
   <div class="grow"></div>
 
   {#if doc.encrypted}
@@ -217,6 +276,29 @@
   .text.on {
     background: var(--accent-soft);
     color: var(--accent);
+  }
+
+  .tool.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .colors {
+    gap: 3px;
+    margin-left: 6px;
+  }
+
+  .swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--swatch);
+    border: 2px solid transparent;
+    flex-shrink: 0;
+  }
+
+  .swatch.on {
+    border-color: var(--text);
   }
 
   .page {

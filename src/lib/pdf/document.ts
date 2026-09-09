@@ -20,6 +20,7 @@ export interface PdfHandle {
   encrypted: boolean;
   outline(): Promise<OutlineEntry[]>;
   page(index: number): Promise<import('pdfjs-dist').PDFPageProxy>;
+  hideFromCanvas(refs: string[]): void;
   destroy(): Promise<void>;
 }
 
@@ -130,6 +131,9 @@ export async function openPdfDocument(
     },
     page(index: number) {
       return document.getPage(Math.min(Math.max(1, index), pageCount));
+    },
+    hideFromCanvas(refs: string[]) {
+      for (const ref of refs) document.annotationStorage.setValue(ref, { noView: true });
     },
     async destroy() {
       await document.destroy();

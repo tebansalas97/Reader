@@ -25,6 +25,8 @@ export interface Prefs {
   formatTablesOnSave: boolean;
   localHistory: boolean;
   personalDictionary: string[];
+  annotationAuthor: string;
+  annotationColor: string;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -52,6 +54,8 @@ export const DEFAULT_PREFS: Prefs = {
   formatTablesOnSave: true,
   localHistory: true,
   personalDictionary: [],
+  annotationAuthor: '',
+  annotationColor: '#ffd400',
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -103,6 +107,11 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     personalDictionary: Array.isArray(stored.personalDictionary)
       ? stored.personalDictionary.filter((w): w is string => typeof w === 'string')
       : [],
+    annotationAuthor:
+      typeof stored.annotationAuthor === 'string' ? stored.annotationAuthor.slice(0, 80) : '',
+    annotationColor: /^#[0-9a-fA-F]{6}$/.test(String(stored.annotationColor ?? ''))
+      ? String(stored.annotationColor)
+      : d.annotationColor,
   };
 }
 
