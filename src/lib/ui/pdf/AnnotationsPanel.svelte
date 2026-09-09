@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { Annotation, AnnotationKind } from '$lib/pdf/annotations/model';
   import { labelFor, pagesWithQuads, textInQuads } from '$lib/pdf/annotations/summary';
   import type { PdfHandle } from '$lib/pdf/document';
   import { positionOfSource, type PageEdit } from '$lib/pdf/pages';
@@ -35,13 +35,21 @@
       .filter((entry) => entry.page > 0)
       .sort((a, b) => a.page - b.page),
   );
+  const ORDER: AnnotationKind[] = [
+    'highlight',
+    'underline',
+    'strikeout',
+    'note',
+    'ink',
+    'rect',
+    'ellipse',
+  ];
+
   const groups = $derived(
-    placed.reduce((list, entry) => {
-      const last = list[list.length - 1];
-      if (last && last.page === entry.page) last.marks.push(entry.annotation);
-      else list.push({ page: entry.page, marks: [entry.annotation] });
-      return list;
-    }, [] as Array<{ page: number; marks: Annotation[] }>),
+    ORDER.map((kind) => ({
+      kind,
+      marks: placed.filter((entry) => entry.annotation.kind === kind),
+    })).filter((group) => group.marks.length > 0),
   );
 
   $effect(() => {
@@ -93,29 +101,36 @@
   </div>
 {:else}
   <ul class="list" bind:this={list}>
-    {#each groups as group (group.page)}
+    {#each groups as group (group.kind)}
       <li class="group">
-        <p class="page">{t('pdf.page')} {group.page}</p>
+        <p class="page">{t(`pdf.tool.${group.kind}`)} · {group.marks.length}</p>
         <ul class="marks">
-          {#each group.marks as mark (mark.id)}
-            <li class="mark" class:on={mark.id === selectedId}>
+          {#each group.marks as entry (entry.annotation.id)}
+            <li class="mark" class:on={entry.annotation.id === selectedId}>
               <button
                 class="go"
                 title={t('pdf.goToMark')}
-                onclick={() => onselect(mark.id, group.page)}
+                onclick={() => onselect(entry.annotation.id, entry.page)}
               >
-                <span class="dot" style="--dot: {mark.color}">
+                <span class="dot" style="--dot: {entry.annotation.color}">
                   <svg viewBox="0 0 16 16" aria-hidden="true">
-                    <path d={ICONS[mark.kind] ?? ICONS.note} />
+                    <path d={ICONS[entry.annotation.kind] ?? ICONS.note} />
                   </svg>
                 </span>
-                <span class="text">{labelFor(mark, textOf(mark), t(`pdf.tool.${mark.kind}`))}</span>
+                <span class="text">
+                  {labelFor(
+                    entry.annotation,
+                    textOf(entry.annotation),
+                    t(`pdf.tool.${entry.annotation.kind}`),
+                  )}
+                </span>
+                <span class="at">{entry.page}</span>
               </button>
               <button
                 class="remove"
                 title={t('pdf.deleteMark')}
                 aria-label={t('pdf.deleteMark')}
-                onclick={() => ondelete(mark.id)}
+                onclick={() => ondelete(entry.annotation.id)}
               >
                 <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
               </button>
@@ -211,6 +226,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .at {
+    color: var(--text-faint);
+    font-variant-numeric: tabular-nums;
+    flex-shrink: 0;
   }
 
   .remove {

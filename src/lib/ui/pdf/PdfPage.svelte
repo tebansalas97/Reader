@@ -94,7 +94,7 @@
       try {
         const page = await getPage(currentIndex + 1);
         if (cancelled) return;
-        await renderer.render(page, currentScale, currentRotation);
+        await renderer.render(page, currentScale, currentSize.rotation + currentRotation);
         if (cancelled) return;
         failed = false;
         drawn = true;
@@ -120,7 +120,7 @@
 <div
   class="page"
   class:live
-  data-page={index + 1}
+  data-page={page}
   style="width: {box.cssWidth}px; height: {box.cssHeight}px"
 >
   <canvas bind:this={canvas} aria-label="Página {index + 1}"></canvas>

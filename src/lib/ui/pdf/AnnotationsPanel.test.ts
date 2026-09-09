@@ -60,16 +60,35 @@ describe('AnnotationsPanel', () => {
     expect(container.querySelector('.empty')).not.toBeNull();
   });
 
-  it('lists an annotation under its page', () => {
+  it('lists an annotation under its kind, with the page it is on', () => {
     const { container } = render(
       AnnotationsPanel,
       props({ annotations: [annotation('note', { contents: 'recordar esto', page: 3 })] }),
     );
-    expect(container.querySelector('.page')?.textContent).toContain('3');
-    expect(container.querySelector('.text')?.textContent).toBe('recordar esto');
+    expect(container.querySelector('.page')?.textContent).toContain('Nota');
+    expect(container.querySelector('.text')?.textContent?.trim()).toBe('recordar esto');
+    expect(container.querySelector('.at')?.textContent).toBe('3');
   });
 
-  it('groups the annotations of the same page', () => {
+  it('puts each kind in its own group', () => {
+    const { container } = render(
+      AnnotationsPanel,
+      props({
+        annotations: [
+          annotation('strikeout', { id: 's1', page: 2, quads: QUADS }),
+          annotation('note', { id: 'n1', page: 1, contents: 'uno' }),
+          annotation('strikeout', { id: 's2', page: 1, quads: QUADS }),
+        ],
+      }),
+    );
+    const headings = [...container.querySelectorAll('.page')].map((p) => p.textContent?.trim());
+    expect(headings).toHaveLength(2);
+    expect(headings[0]).toContain('Tachar');
+    expect(headings[0]).toContain('2');
+    expect(container.querySelectorAll('.group')[0]?.querySelectorAll('.mark')).toHaveLength(2);
+  });
+
+  it('keeps the annotations of one kind together', () => {
     const { container } = render(
       AnnotationsPanel,
       props({
@@ -111,7 +130,7 @@ describe('AnnotationsPanel', () => {
     expect(onselect).toHaveBeenCalledWith('a1', 5);
   });
 
-  it('lists an annotation by where its page sits now, not by its page in the file', () => {
+  it('shows where its page sits now, not its page in the file', () => {
     const plan = [
       { source: 3, rotation: 0 as const },
       { source: 1, rotation: 0 as const },
@@ -120,7 +139,7 @@ describe('AnnotationsPanel', () => {
       AnnotationsPanel,
       props({ annotations: [annotation('note', { page: 3, contents: 'la tercera' })], plan }),
     );
-    expect(container.querySelector('.page')?.textContent).toContain('1');
+    expect(container.querySelector('.at')?.textContent).toBe('1');
   });
 
   it('leaves out an annotation whose page is about to go', () => {

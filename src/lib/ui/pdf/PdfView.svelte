@@ -267,6 +267,48 @@
   });
 
   $effect(() => {
+    const annotation = selected;
+    const node = scroller;
+    void scale;
+    void plan;
+    if (!annotation || !node) return;
+
+    const currentScale = scale;
+    const currentRotation = rotation;
+
+    requestAnimationFrame(() => {
+      const element = node.querySelector<HTMLElement>(`.page[data-page="${annotation.page}"]`);
+      const size = sizes[pageIndexOfSource(annotation.page)];
+      const box = element && size ? paintBox(annotation, size, currentScale, currentRotation) : null;
+      if (!element || !box) return;
+
+      const page = element.getBoundingClientRect();
+      const view = node.getBoundingClientRect();
+      const margin = 24;
+      const top = page.top + box.y;
+      const bottom = top + box.height;
+      const left = page.left + box.x;
+      const right = left + box.width;
+
+      let byY = 0;
+      if (top < view.top + margin) byY = top - view.top - margin;
+      else if (bottom > view.bottom - margin) byY = bottom - view.bottom + margin;
+
+      let byX = 0;
+      if (left < view.left + margin) byX = left - view.left - margin;
+      else if (right > view.right - margin) byX = right - view.right + margin;
+
+      if (byX === 0 && byY === 0) return;
+      programmatic = true;
+      node.scrollBy({ top: byY, left: byX });
+      requestAnimationFrame(() => {
+        programmatic = false;
+        scrollTop = node.scrollTop;
+      });
+    });
+  });
+
+  $effect(() => {
     const id: string | null = selectedId;
     if (id === null) return;
 
@@ -300,6 +342,10 @@
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   });
+
+  function pageIndexOfSource(source: number): number {
+    return plan.findIndex((entry) => entry.source === source);
+  }
 
   function quadTool(): boolean {
     return tool === 'highlight' || tool === 'underline' || tool === 'strikeout';

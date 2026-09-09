@@ -117,7 +117,20 @@
           <button class="link" onclick={onopenfolder}>{t('sidebar.openFolder')}</button>
         </div>
       {:else}
-        <p class="folder" title={ui.folder}>{basename(ui.folder)}</p>
+        <div class="folder">
+          <p title={ui.folder}>{basename(ui.folder)}</p>
+          <button
+            class="change"
+            title={t('sidebar.changeFolder')}
+            aria-label={t('sidebar.changeFolder')}
+            onclick={onopenfolder}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M2 4.5h4L7.4 6H14v7.5H2z" />
+              <path d="M8 8v4M6 10h4" />
+            </svg>
+          </button>
+        </div>
         <FileTree {entries} {activePath} {onopen} />
       {/if}
     {:else if panel === 'pages' && pdf}
@@ -227,8 +240,16 @@
   }
 
   .folder {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 6px 4px 10px;
+  }
+
+  .folder p {
+    flex: 1;
+    min-width: 0;
     margin: 0;
-    padding: 8px 10px 4px;
     font-size: 0.92em;
     font-weight: 600;
     color: var(--text-faint);
@@ -237,6 +258,32 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .change {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    color: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .change:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  .change svg {
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.35;
+    stroke-linecap: round;
+    stroke-linejoin: round;
   }
 
   .empty {

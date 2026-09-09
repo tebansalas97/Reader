@@ -195,15 +195,15 @@ describe('createPageRenderer', () => {
     expect(canvas.width).toBeGreaterThan(0);
   });
 
-  it('adds the rotation of the page to the one asked for', async () => {
+  it('draws at the rotation it is given, whatever the page says', async () => {
     const page = fakePage(90);
-    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 90);
+    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 180);
     expect(page.calls[0]?.rotation).toBe(180);
   });
 
-  it('leaves an upright page at the rotation asked for', async () => {
-    const page = fakePage(0);
-    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 270);
-    expect(page.calls[0]?.rotation).toBe(270);
+  it('does not add the rotation of the page a second time', async () => {
+    const page = fakePage(90);
+    await createPageRenderer(document.createElement('canvas')).render(page as never, 1, 90);
+    expect(page.calls[0]?.rotation).toBe(90);
   });
 });

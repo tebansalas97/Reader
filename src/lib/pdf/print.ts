@@ -31,7 +31,7 @@ export async function renderForPrint(
     const page = await handle.page(number);
     const size = handle.pageSizes[number - 1];
     const scale = size ? printScale(size, rotation) : 1;
-    const viewport = page.getViewport({ scale, rotation: page.rotate + rotation });
+    const viewport = page.getViewport({ scale, rotation: (size?.rotation ?? 0) + rotation });
 
     canvas.width = Math.max(1, Math.round(viewport.width));
     canvas.height = Math.max(1, Math.round(viewport.height));

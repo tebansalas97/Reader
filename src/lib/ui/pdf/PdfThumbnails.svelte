@@ -61,7 +61,9 @@
     drawn.add(stamp);
     try {
       const page = await handle.page(entry.source);
-      await createPageRenderer(canvas).render(page, sizeOf(index).scale, entry.rotation);
+      const size = handle.pageSizes[entry.source - 1];
+      const total = (size?.rotation ?? 0) + entry.rotation;
+      await createPageRenderer(canvas).render(page, sizeOf(index).scale, total);
     } catch {
       drawn.delete(stamp);
     }

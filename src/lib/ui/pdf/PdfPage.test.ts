@@ -85,6 +85,12 @@ describe('PdfPage', () => {
     expect(renders[0]).toEqual({ scale: 1.5, rotation: 180 });
   });
 
+  it('draws a page that the file already had turned at its own rotation', async () => {
+    render(PdfPage, props({ size: { width: 600, height: 800, rotation: 90 }, rotation: 90 }));
+    await settle();
+    expect(renders[0]?.rotation).toBe(180);
+  });
+
   it('does not draw a page that is out of view', async () => {
     render(PdfPage, props({ live: false }));
     await settle();
