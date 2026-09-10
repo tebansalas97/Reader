@@ -9,7 +9,7 @@
 
   const { version, onclose }: Props = $props();
 
-  const REPOSITORY = 'https://github.com/estebansalas/reader';
+  const REPOSITORY = 'https://github.com/tebansalas97/Reader';
 
   const PARTS = [
     { name: 'pdf.js', license: 'Apache-2.0' },
