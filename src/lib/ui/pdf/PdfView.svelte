@@ -12,6 +12,7 @@
   import type { TextEdit } from '$lib/pdf/edit/document';
   import type { TextRun } from '$lib/pdf/edit/runs';
   import type { TextPiece } from '$lib/pdf/text-layer';
+  import { copiesOf, toggleSelection } from '$lib/pdf/annotations/multi';
   import { editFor, textEdits } from '$lib/state/textedit.svelte';
   import TextEditPopover from './TextEditPopover.svelte';
   import { fieldsOnPage, type FormField } from '$lib/pdf/forms/model';
@@ -46,12 +47,12 @@
     tool?: AnnotationTool;
     color?: string;
     author?: string;
-    selectedId?: string | null;
+    selectedIds?: string[];
     stamp?: StampItem | null;
     oncreate?: (annotations: Annotation[]) => void;
-    onselect?: (id: string | null) => void;
+    onselect?: (ids: string[]) => void;
     onchange?: (annotation: Annotation) => void;
-    ondelete?: (id: string) => void;
+    ondelete?: (ids: string[]) => void;
     hit?: { page: number; items: number[] } | null;
     night?: boolean;
     onedit?: (edit: TextEdit) => void;
@@ -69,7 +70,7 @@
     tool = 'none',
     color = '#ffd400',
     author = '',
-    selectedId = null,
+    selectedIds = [],
     stamp = null,
     oncreate,
     onselect,
@@ -148,6 +149,7 @@
     }, new Map<number, Annotation[]>()),
   );
 
+  const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
   const selected = $derived(annotations.find((entry) => entry.id === selectedId) ?? null);
   let anchor = $state<{ x: number; y: number } | null>(null);
 
@@ -349,8 +351,8 @@
   });
 
   $effect(() => {
-    const id: string | null = selectedId;
-    if (id === null) return;
+    const ids = selectedIds;
+    if (ids.length === 0) return;
 
     const NUDGE: Record<string, [number, number]> = {
       ArrowLeft: [-1, 0],
@@ -366,17 +368,26 @@
 
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        ondelete?.(id as string);
+        ondelete?.(ids);
+        return;
+      }
+
+      if ((event.ctrlKey || event.metaKey) && (event.key === 'd' || event.key === 'D')) {
+        event.preventDefault();
+        const copies = copiesOf(annotations, ids);
+        if (copies.length > 0) oncreate?.(copies);
         return;
       }
 
       const step = NUDGE[event.key];
       if (!step) return;
-      const annotation = annotations.find((entry) => entry.id === id);
-      if (!annotation) return;
       const size = event.shiftKey ? 10 : 1;
+      const moving = annotations.filter((entry) => ids.includes(entry.id));
+      if (moving.length === 0) return;
       event.preventDefault();
-      onchange?.(movedBy(annotation, step[0] * size, step[1] * size));
+      for (const annotation of moving) {
+        onchange?.(movedBy(annotation, step[0] * size, step[1] * size));
+      }
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -489,7 +500,7 @@
   }
 
   function onPointerDown(): void {
-    if (selectedId !== null) onselect?.(null);
+    if (selectedIds.length > 0) onselect?.([]);
   }
 
   export function setZoomMode(mode: PdfDocument['zoom']): void {
@@ -534,7 +545,7 @@
           {tool}
           {color}
           {author}
-          {selectedId}
+          {selectedIds}
           {stamp}
           edits={edits.filter((entry) => entry.page === (plan[index]?.source ?? index + 1))}
           flash={hit && hit.page === (plan[index]?.source ?? index + 1) ? hit.items : []}
@@ -555,7 +566,7 @@
           }}
           onunedit={(id) => onunedit?.(id)}
           oncreate={(annotation) => oncreate?.([annotation])}
-          onselect={(id) => onselect?.(id)}
+          onselect={(id, additive) => onselect?.(toggleSelection(selectedIds, id, additive))}
           onchange={(annotation) => onchange?.(annotation)}
         />
       {/each}
@@ -582,8 +593,8 @@
     x={anchor.x}
     y={anchor.y}
     onchange={(annotation) => onchange?.(annotation)}
-    ondelete={(id) => ondelete?.(id)}
-    onclose={() => onselect?.(null)}
+    ondelete={(id) => ondelete?.([id])}
+    onclose={() => onselect?.([])}
   />
 {/if}
 

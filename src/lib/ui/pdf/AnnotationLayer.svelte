@@ -25,11 +25,11 @@
     canResize,
     canRotate,
     centreOf,
-    movedBy,
     rotatedAround,
     scaledInto,
   } from '$lib/pdf/annotations/transform';
   import type { PageSize } from '$lib/pdf/document';
+  import { movedGroup } from '$lib/pdf/annotations/multi';
   import { rotatedSize } from '$lib/pdf/render';
   import type { StampItem } from '$lib/state/stamps.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
@@ -43,10 +43,10 @@
     tool: AnnotationTool;
     color: string;
     author: string;
-    selectedId: string | null;
+    selectedIds: string[];
     stamp?: StampItem | null;
     oncreate: (annotation: Annotation) => void;
-    onselect: (id: string | null) => void;
+    onselect: (id: string, additive: boolean) => void;
     onchange?: (annotation: Annotation) => void;
   }
 
@@ -59,7 +59,7 @@
     tool,
     color,
     author,
-    selectedId,
+    selectedIds,
     stamp = null,
     oncreate,
     onselect,
@@ -71,6 +71,7 @@
   interface Gesture {
     mode: Mode;
     original: Annotation;
+    group: Annotation[];
     start: Point;
     from: Rect;
     anchor: Point;
@@ -82,7 +83,7 @@
   let start = $state<Point | null>(null);
   let end = $state<Point | null>(null);
   let gesture = $state<Gesture | null>(null);
-  let draft = $state<Annotation | null>(null);
+  let drafts = $state<Annotation[]>([]);
 
   const box = $derived(rotatedSize(size, rotation));
   const width = $derived(Math.max(1, Math.round(box.width * scale)));
@@ -95,8 +96,12 @@
       tool === 'note' ||
       tool === 'signature',
   );
+  const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
+  const chosen = $derived(new Set(selectedIds));
   const shown = $derived(
-    annotations.map((annotation) => (draft && draft.id === annotation.id ? draft : annotation)),
+    annotations.map(
+      (annotation) => drafts.find((entry) => entry.id === annotation.id) ?? annotation,
+    ),
   );
   const painted = $derived(
     shown.map((annotation) => ({
@@ -112,6 +117,14 @@
   const selected = $derived(shown.find((annotation) => annotation.id === selectedId) ?? null);
   const frame = $derived(
     selected && !draws ? (paintAnnotation(selected, size, scale, rotation).box ?? null) : null,
+  );
+  const groupFrames = $derived(
+    selectedIds.length > 1 && !draws
+      ? shown
+          .filter((annotation) => chosen.has(annotation.id))
+          .map((annotation) => paintAnnotation(annotation, size, scale, rotation).box)
+          .filter((box): box is Rect => box !== null)
+      : [],
   );
   const corners = $derived(
     frame
@@ -179,12 +192,22 @@
     return toPdfPoint(opposite, size, scale, rotation);
   }
 
-  function beginGesture(event: PointerEvent, mode: Mode, anchorAt?: Point): void {
-    const annotation = selected;
+  function beginGesture(
+    event: PointerEvent,
+    mode: Mode,
+    anchorAt?: Point,
+    on?: Annotation,
+  ): void {
+    const annotation = on ?? selected;
     if (!annotation || event.button !== 0) return;
     const from = boundsOf(annotation);
     const centre = centreOf(annotation);
     if (!from || !centre) return;
+
+    const group =
+      mode === 'move' && chosen.has(annotation.id)
+        ? shown.filter((entry) => chosen.has(entry.id) && canEdit(entry))
+        : [annotation];
 
     event.stopPropagation();
     event.preventDefault();
@@ -192,12 +215,13 @@
     gesture = {
       mode,
       original: annotation,
+      group,
       start: inPdf(event),
       from,
       anchor: anchorAt ?? { x: from.x, y: from.y },
       centre,
     };
-    draft = annotation;
+    drafts = group;
   }
 
   function updateGesture(event: PointerEvent): void {
@@ -206,26 +230,36 @@
     const pointer = inPdf(event);
 
     if (current.mode === 'move') {
-      draft = movedBy(current.original, pointer.x - current.start.x, pointer.y - current.start.y);
-    } else if (current.mode === 'resize') {
-      draft = scaledInto(current.original, current.from, boundsFrom(current.anchor, pointer));
-    } else {
-      draft = rotatedAround(
-        current.original,
-        current.centre,
-        angleBetween(current.centre, current.start, pointer),
+      drafts = movedGroup(
+        current.group,
+        current.group.map((entry) => entry.id),
+        pointer.x - current.start.x,
+        pointer.y - current.start.y,
       );
+    } else if (current.mode === 'resize') {
+      drafts = [scaledInto(current.original, current.from, boundsFrom(current.anchor, pointer))];
+    } else {
+      drafts = [
+        rotatedAround(
+          current.original,
+          current.centre,
+          angleBetween(current.centre, current.start, pointer),
+        ),
+      ];
     }
   }
 
   function endGesture(event: PointerEvent): void {
     const current = gesture;
-    const made = draft;
+    const made = drafts;
     if (!current) return;
     capture(event, false);
     gesture = null;
-    draft = null;
-    if (made && annotationKey(made) !== annotationKey(current.original)) onchange?.(made);
+    drafts = [];
+    for (const annotation of made) {
+      const before = current.group.find((entry) => entry.id === annotation.id) ?? current.original;
+      if (annotationKey(annotation) !== annotationKey(before)) onchange?.(annotation);
+    }
   }
 
   function onPointerDown(event: PointerEvent): void {
@@ -430,7 +464,7 @@
     <rect
       class="hit"
       class:on={!draws}
-      class:grab={!draws && entry.annotation.id === selectedId}
+      class:grab={!draws && chosen.has(entry.annotation.id)}
       x={entry.box!.x}
       y={entry.box!.y}
       width={entry.box!.width}
@@ -440,16 +474,21 @@
       aria-label={t(`pdf.tool.${entry.annotation.kind}`)}
       onpointerdown={(event) => {
         if (draws) return;
-        if (entry.annotation.id === selectedId && canEdit(entry.annotation)) {
-          beginGesture(event, 'move');
+        const additive = event.shiftKey || event.ctrlKey;
+        if (!additive && chosen.has(entry.annotation.id) && canEdit(entry.annotation)) {
+          beginGesture(event, 'move', undefined, entry.annotation);
           return;
         }
         event.stopPropagation();
-        onselect(entry.annotation.id);
+        onselect(entry.annotation.id, additive);
       }}
       onpointermove={onPointerMove}
       onpointerup={onPointerUp}
     />
+  {/each}
+
+  {#each groupFrames as box, i (i)}
+    <rect class="outline" x={box.x} y={box.y} width={box.width} height={box.height} />
   {/each}
 
   {#if frame && selected}

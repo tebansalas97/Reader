@@ -206,11 +206,12 @@
 
   function applyColor(color: string): void {
     prefs.update({ annotationColor: color });
-    const id = ui.selectedAnnotation;
     const doc = activePdf;
-    if (!id || !doc) return;
-    const annotation = doc.annotations.find((entry) => entry.id === id);
-    if (annotation) documents.updateAnnotation(doc.id, { ...annotation, color });
+    if (!doc) return;
+    for (const id of ui.selection) {
+      const annotation = doc.annotations.find((entry) => entry.id === id);
+      if (annotation) documents.updateAnnotation(doc.id, { ...annotation, color });
+    }
   }
 
   async function savePdf(
@@ -266,7 +267,7 @@
       }
       documents.loadAnnotations(doc.id, fresh);
       documents.markPdfSaved(doc.id, modifiedMs);
-      ui.selectedAnnotation = null;
+      ui.selection = [];
 
       textEdits.close();
       if (written.edits.length > 0 || current.some((annotation) => annotation.kind === 'stamp')) {
@@ -719,7 +720,7 @@
       toggleZen: () => ui.toggleZen(),
       exitZen: () => {
         if (spellMenu !== null) spellMenu = null;
-        else if (ui.selectedAnnotation !== null) ui.selectedAnnotation = null;
+        else if (ui.selection.length > 0) ui.selection = [];
         else if (ui.annotationTool !== 'none') ui.annotationTool = 'none';
         else if (ui.snapshotPreview !== null) ui.snapshotPreview = null;
         else if (ui.diagram !== null) ui.diagram = null;
@@ -956,7 +957,7 @@
       dirty: documentIsDirty(doc),
       hasPath: doc.path !== null,
       saving,
-      selected: ui.selectedAnnotation !== null,
+      selected: ui.selection.length > 0,
       editingText: ui.editingText,
     });
     if (!ready) return;
@@ -1094,7 +1095,7 @@
               tool={ui.annotationTool}
               color={prefs.current.annotationColor}
               author={prefs.current.annotationAuthor}
-              selectedId={ui.selectedAnnotation}
+              selectedIds={ui.selection}
               stamp={stamps.byId(stamps.active)}
               hit={pdfHit}
               night={prefs.current.pdfNight}
@@ -1105,15 +1106,15 @@
               onvalue={(name, value) => documents.setFieldValue(activePdf.id, name, value)}
               oncreate={(made) => {
                 for (const annotation of made) documents.addAnnotation(activePdf.id, annotation);
-                ui.selectedAnnotation = made.length === 1 ? made[0]!.id : null;
+                ui.selection = made.map((annotation) => annotation.id);
               }}
-              onselect={(id) => (ui.selectedAnnotation = id)}
+              onselect={(ids) => (ui.selection = ids)}
               onchange={(annotation) => documents.updateAnnotation(activePdf.id, annotation)}
               onedit={(edit) => documents.addEdit(activePdf.id, edit)}
               onunedit={(id) => documents.removeEdit(activePdf.id, id)}
-              ondelete={(id) => {
-                documents.removeAnnotation(activePdf.id, id);
-                ui.selectedAnnotation = null;
+              ondelete={(ids) => {
+                for (const id of ids) documents.removeAnnotation(activePdf.id, id);
+                ui.selection = [];
               }}
               onready={(handle) => {
                 pdfHandle = handle;
@@ -1217,7 +1218,7 @@
       stamps.active = item.id;
       ui.signatureOpen = false;
       ui.annotationTool = 'signature';
-      ui.selectedAnnotation = null;
+      ui.selection = [];
     }}
   />
 {/if}

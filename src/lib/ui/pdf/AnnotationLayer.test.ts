@@ -39,15 +39,21 @@ function props(overrides: Record<string, unknown> = {}) {
     tool: 'none' as const,
     color: '#ff0000',
     author: 'Esteban',
-    selectedId: null,
+    selectedIds: [],
     oncreate: () => undefined,
     onselect: () => undefined,
     ...overrides,
   };
 }
 
-function point(type: string, x: number, y: number): Event {
-  const event = new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, button: 0 });
+function point(type: string, x: number, y: number, extra: MouseEventInit = {}): Event {
+  const event = new MouseEvent(type, {
+    clientX: x,
+    clientY: y,
+    bubbles: true,
+    button: 0,
+    ...extra,
+  });
   return event;
 }
 
@@ -91,7 +97,7 @@ describe('AnnotationLayer', () => {
       props({ annotations: [HIGHLIGHT], onselect }),
     );
     container.querySelector('.hit')?.dispatchEvent(point('pointerdown', 20, 95));
-    expect(onselect).toHaveBeenCalledWith('a1');
+    expect(onselect).toHaveBeenCalledWith('a1', false);
   });
 
   it('does not select while a tool is on', () => {
@@ -107,7 +113,7 @@ describe('AnnotationLayer', () => {
   it('frames the selected annotation with its handles', () => {
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1' }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'] }),
     );
     expect(container.querySelector('.frame .outline')).not.toBeNull();
     expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
@@ -117,7 +123,7 @@ describe('AnnotationLayer', () => {
   it('offers no handles while a tool is on', () => {
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1', tool: 'ink' }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'], tool: 'ink' }),
     );
     expect(container.querySelector('.frame')).toBeNull();
   });
@@ -129,7 +135,7 @@ describe('AnnotationLayer', () => {
     });
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [shape], selectedId: 'r1' }),
+      props({ annotations: [shape], selectedIds: ['r1'] }),
     );
     expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
     expect(container.querySelector('.frame circle.turn')).toBeNull();
@@ -142,7 +148,7 @@ describe('AnnotationLayer', () => {
     });
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [note], selectedId: 'n1' }),
+      props({ annotations: [note], selectedIds: ['n1'] }),
     );
     expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(0);
   });
@@ -151,7 +157,7 @@ describe('AnnotationLayer', () => {
     const onchange = vi.fn();
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'], onchange }),
     );
     const hit = container.querySelector('.hit')!;
     hit.dispatchEvent(point('pointerdown', 50, 95));
@@ -168,7 +174,7 @@ describe('AnnotationLayer', () => {
     const onchange = vi.fn();
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'], onchange }),
     );
     const hit = container.querySelector('.hit')!;
     hit.dispatchEvent(point('pointerdown', 50, 95));
@@ -187,7 +193,7 @@ describe('AnnotationLayer', () => {
     hit.dispatchEvent(point('pointerdown', 50, 95));
     hit.dispatchEvent(point('pointermove', 70, 115));
     hit.dispatchEvent(point('pointerup', 70, 115));
-    expect(onselect).toHaveBeenCalledWith('a1');
+    expect(onselect).toHaveBeenCalledWith('a1', false);
     expect(onchange).not.toHaveBeenCalled();
   });
 
@@ -195,7 +201,7 @@ describe('AnnotationLayer', () => {
     const onchange = vi.fn();
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'], onchange }),
     );
     const corner = container.querySelectorAll('.frame rect.handle')[2]!;
     corner.dispatchEvent(point('pointerdown', 110, 100));
@@ -211,7 +217,7 @@ describe('AnnotationLayer', () => {
     const onchange = vi.fn();
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [HIGHLIGHT], selectedId: 'a1', onchange }),
+      props({ annotations: [HIGHLIGHT], selectedIds: ['a1'], onchange }),
     );
     const turn = container.querySelector('.frame circle.turn')!;
     turn.dispatchEvent(point('pointerdown', 60, 70));
@@ -319,7 +325,7 @@ describe('AnnotationLayer', () => {
     });
     const { container } = render(
       AnnotationLayer,
-      props({ annotations: [stamp], selectedId: 'st1' }),
+      props({ annotations: [stamp], selectedIds: ['st1'] }),
     );
     expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
     expect(container.querySelector('.frame circle.turn')).not.toBeNull();
@@ -365,5 +371,41 @@ describe('AnnotationLayer', () => {
 
     const made = oncreate.mock.calls[0]![0] as Annotation;
     expect(made.rect).toEqual({ x: 10, y: 100, width: 100, height: 60 });
+  });
+});
+
+describe('AnnotationLayer with several chosen', () => {
+  it('tells the caller a modified click adds to the selection', () => {
+    const onselect = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT], selectedIds: [], onselect }),
+    );
+    const hit = container.querySelector('.hit') as Element;
+    hit.dispatchEvent(point('pointerdown', 70, 110, { shiftKey: true }));
+    expect(onselect).toHaveBeenCalledWith('a1', true);
+  });
+
+  it('outlines every chosen annotation', () => {
+    const second = { ...HIGHLIGHT, id: 'a2' };
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT, second], selectedIds: ['a1', 'a2'] }),
+    );
+    expect(container.querySelectorAll('.outline')).toHaveLength(2);
+  });
+
+  it('moves the whole group in one gesture', () => {
+    const second = { ...HIGHLIGHT, id: 'a2' };
+    const onchange = vi.fn();
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [HIGHLIGHT, second], selectedIds: ['a1', 'a2'], onchange }),
+    );
+    const hit = container.querySelector('.hit') as Element;
+    hit.dispatchEvent(point('pointerdown', 70, 110));
+    hit.dispatchEvent(point('pointermove', 90, 110));
+    hit.dispatchEvent(point('pointerup', 90, 110));
+    expect(onchange).toHaveBeenCalledTimes(2);
   });
 });

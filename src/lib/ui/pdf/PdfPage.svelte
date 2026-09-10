@@ -31,10 +31,10 @@
     tool?: AnnotationTool;
     color?: string;
     author?: string;
-    selectedId?: string | null;
+    selectedIds?: string[];
     stamp?: StampItem | null;
     oncreate?: (annotation: Annotation) => void;
-    onselect?: (id: string | null) => void;
+    onselect?: (id: string, additive: boolean) => void;
     onchange?: (annotation: Annotation) => void;
     fields?: FormField[];
     values?: FieldValues;
@@ -60,7 +60,7 @@
     tool = 'none',
     color = '#ffd400',
     author = '',
-    selectedId = null,
+    selectedIds = [],
     stamp = null,
     oncreate,
     onselect,
@@ -205,10 +205,10 @@
       {tool}
       {color}
       {author}
-      {selectedId}
+      {selectedIds}
       {stamp}
       oncreate={(annotation) => oncreate?.(annotation)}
-      onselect={(id) => onselect?.(id)}
+      onselect={(id, additive) => onselect?.(id, additive)}
       onchange={(annotation) => onchange?.(annotation)}
     />
   {/if}

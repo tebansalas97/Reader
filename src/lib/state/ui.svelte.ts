@@ -31,10 +31,18 @@ class UiStore {
   spellState = $state<'off' | 'loading' | 'ready' | 'failed'>('off');
   snapshotPreview = $state<{ text: string; label: string } | null>(null);
   annotationTool = $state<AnnotationTool>('none');
-  selectedAnnotation = $state<string | null>(null);
+  selection = $state<string[]>([]);
   selectedPages = $state<number[]>([]);
   signatureOpen = $state(false);
   editingText = $state(false);
+
+  get selectedAnnotation(): string | null {
+    return this.selection.length === 1 ? this.selection[0]! : null;
+  }
+
+  set selectedAnnotation(id: string | null) {
+    this.selection = id === null ? [] : [id];
+  }
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);
@@ -60,7 +68,7 @@ class UiStore {
 
   useTool(tool: AnnotationTool): void {
     this.annotationTool = this.annotationTool === tool ? 'none' : tool;
-    if (this.annotationTool !== 'none') this.selectedAnnotation = null;
+    if (this.annotationTool !== 'none') this.selection = [];
   }
 
   toggleToolbar(): void {
