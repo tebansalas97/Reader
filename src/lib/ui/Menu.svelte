@@ -28,6 +28,10 @@
       { action: 'print', key: 'menu.print', hint: 'Ctrl+P' },
     ],
     [
+      { action: 'exportNotes', key: 'menu.exportNotes', hint: '' },
+      { action: 'importNotes', key: 'menu.importNotes', hint: '' },
+    ],
+    [
       { action: 'toggleFiles', key: 'sidebar.files', hint: 'Ctrl+Shift+E' },
       { action: 'toggleOutline', key: 'sidebar.outline', hint: 'Ctrl+Shift+U' },
       { action: 'toggleZen', key: 'view.zen', hint: 'F11' },

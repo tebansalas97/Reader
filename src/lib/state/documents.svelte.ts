@@ -379,6 +379,13 @@ class DocumentsStore {
     if (doc) doc.annotations = [...doc.annotations, annotation];
   }
 
+  addAnnotations(id: string, annotations: Annotation[]): void {
+    if (annotations.length === 0) return;
+    this.record(id, 'annotation:import');
+    const doc = this.pdfById(id);
+    if (doc) doc.annotations = [...doc.annotations, ...annotations];
+  }
+
   updateAnnotation(id: string, annotation: Annotation): void {
     this.record(id, `annotation:${annotation.id}`);
     const doc = this.pdfById(id);

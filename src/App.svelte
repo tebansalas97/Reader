@@ -10,6 +10,7 @@
     exportPdf,
     listDir,
     readBytes,
+    readText,
     ReaderError,
     saveAsset,
     snapshotDocument,
@@ -50,6 +51,7 @@
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
   import { bytesToDataUrl, looksLikePng, shrinkPng } from '$lib/pdf/annotations/png';
+  import { exportable, fromXfdf, toXfdf } from '$lib/pdf/annotations/xfdf';
   import { readAnnotations } from '$lib/pdf/annotations/read';
 
   import {
@@ -442,6 +444,54 @@
     }
   }
 
+  async function exportNotesFlow(): Promise<void> {
+    const doc = activePdf;
+    if (!doc) {
+      toasts.error(t('error.onlyPdf'));
+      return;
+    }
+    const path = await saveDialog({
+      defaultPath: `${doc.title.replace(/\.pdf$/i, '')}.xfdf`,
+      filters: [{ name: 'XFDF', extensions: ['xfdf'] }],
+    }).catch(() => null);
+    if (!path) return;
+    try {
+      const list = $state.snapshot(doc.annotations) as Annotation[];
+      await writeText(path, toXfdf(list, doc.path ?? ''), 'lf');
+      const left = list.length - list.filter(exportable).length;
+      toasts.push(left > 0 ? t('notes.exportedSome', { left }) : basename(path));
+    } catch (error) {
+      reportError('error.exportFailed', error);
+    }
+  }
+
+  async function importNotesFlow(): Promise<void> {
+    const doc = activePdf;
+    if (!doc) {
+      toasts.error(t('error.onlyPdf'));
+      return;
+    }
+    const chosen = await openDialog({
+      multiple: false,
+      filters: [{ name: 'XFDF', extensions: ['xfdf'] }],
+    }).catch(() => null);
+    const path = typeof chosen === 'string' ? chosen : null;
+    if (!path) return;
+    try {
+      const file = await readText(path);
+      const found = fromXfdf(file.text).filter((entry) => entry.page <= doc.pages.length);
+      if (found.length === 0) {
+        toasts.error(t('notes.importedNone'));
+        return;
+      }
+      documents.addAnnotations(doc.id, found);
+      ui.selection = [];
+      toasts.push(t('notes.imported', { count: found.length }));
+    } catch (error) {
+      reportError('error.openFailed', error);
+    }
+  }
+
   function movePlan(plan: PdfDocument['pages']): void {
     const doc = activePdf;
     if (!doc) return;
@@ -741,6 +791,8 @@
       nextTab: () => cycleTab(1),
       prevTab: () => cycleTab(-1),
       exportHtml: () => void exportHtmlFlow(),
+      exportNotes: () => void exportNotesFlow(),
+      importNotes: () => void importNotesFlow(),
       exportPdf: () => void exportPdfFlow(),
       print: printFlow,
       palette: () => (ui.paletteOpen = true),
@@ -994,7 +1046,7 @@
       onclose={requestClose}
       onaction={handleAction}
       onrequestclose={() => void requestQuit()}
-      unavailable={activePdf ? ['exportHtml', 'exportPdf'] : []}
+      unavailable={activePdf ? ['exportHtml', 'exportPdf'] : ['exportNotes', 'importNotes']}
     />
   {/if}
 
