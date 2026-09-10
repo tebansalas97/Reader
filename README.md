@@ -1,13 +1,10 @@
 # Reader
 
-Lector y editor de escritorio para Markdown, construido sobre Tauri 2. Instalador
-de 3.7 MB, arranque en 88 ms y una vista previa que se actualiza mientras
-escribes sin tirones.
+Lector y editor de escritorio para Markdown y PDF, construido sobre Tauri 2.
+Instalador de 3.7 MB, arranque en 88 ms y una vista previa que se actualiza
+mientras escribes sin tirones.
 
-La Fase 2 añadirá PDF: visor, anotaciones, organización de páginas, formularios y
-firma. La Fase 3, edición del contenido de un PDF.
-
-## Qué hace hoy
+## Qué hace con Markdown
 
 - Vista dividida con scroll sincronizado en ambos sentidos, modo solo editor y
   modo lectura a pantalla completa.
@@ -55,6 +52,32 @@ firma. La Fase 3, edición del contenido de un PDF.
 - Historial local: cada guardado deja una copia, hasta cuarenta por documento,
   que puedes ver y restaurar desde la barra lateral.
 
+## Qué hace con PDF
+
+- Visor con zoom, ajuste a ancho o a página, giro, miniaturas, esquema del
+  documento y búsqueda dentro del texto, con salto y resaltado del hallazgo.
+- Tres modos de lectura con `Ctrl+E`: continuo, una página o dos páginas.
+- Modo noche: la página se invierte sin tocar el color de las anotaciones.
+- Anotaciones de verdad, escritas en el archivo como objetos PDF que entiende
+  cualquier lector: resaltar, subrayar, tachar, dibujar a mano alzada, notas con
+  comentario, rectángulos, elipses, sellos de imagen y firmas.
+- Las anotaciones se pueden mover, estirar, girar, duplicar con `Ctrl+D` y elegir
+  de varias en varias con Shift o Ctrl.
+- Catálogo de firmas y de sellos PNG: se guardan una vez y se colocan cuando
+  hagan falta, con su nombre escrito si se prefiere.
+- Panel de notas con todo lo anotado, agrupado por tipo y ordenado por página.
+- Exportar e importar anotaciones en XFDF, que es lo que leen Acrobat y los demás.
+- Organizar páginas: mover, girar de una en una, quitar, extraer a otro archivo e
+  insertar las páginas de otro PDF.
+- Formularios: se rellenan y se guardan con su apariencia regenerada.
+- Editar el texto que ya está en el documento, incluidas las fuentes compuestas
+  de Word y LaTeX, con aviso claro cuando una letra no está en la fuente.
+- Escribir texto nuevo en una caja, con su tamaño y su color.
+- Redacción: borrar de verdad el texto de una zona, no taparlo.
+- Imprimir un intervalo de páginas, siguiendo el orden y los giros del esquema.
+- Deshacer y rehacer con `Ctrl+Z` y `Ctrl+Y`, autoguardado y recuperación de la
+  sesión al arrancar.
+
 ## Requisitos para desarrollar
 
 Node 22, Rust estable y las Build Tools de Visual Studio. WebView2 ya viene con
@@ -97,7 +120,7 @@ tocar la interfaz.
 | `Ctrl+Shift+S` | Guardar como |
 | `Ctrl+W` | Cerrar pestaña |
 | `Ctrl+Tab` | Pestaña siguiente |
-| `Ctrl+E` | Cambiar de vista |
+| `Ctrl+E` | Cambiar de vista, o de modo de lectura en un PDF |
 | `Ctrl+Shift+E` | Panel de archivos |
 | `Ctrl+Shift+U` | Panel de esquema |
 | `F11` | Modo zen |
@@ -107,6 +130,8 @@ tocar la interfaz.
 | `Ctrl+Shift+P` | Paleta de comandos |
 | `Ctrl+Shift+F` | Buscar en la carpeta, o dentro del PDF abierto |
 | `Ctrl+Z` / `Ctrl+Y` | Deshacer y rehacer en un PDF |
+| `Ctrl+D` | Duplicar las anotaciones elegidas |
+| `Supr` | Borrar las anotaciones elegidas |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar, reducir o restaurar el tamano del texto |
 | `Ctrl+,` | Preferencias |
 
