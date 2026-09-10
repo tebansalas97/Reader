@@ -16,12 +16,13 @@
     "fixtures": "node scripts/make-pdf-fixtures.mjs",
     "predev": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
     "prebuild": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
-    "pretest": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs"
+    "pretest": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
+    "licenses": "node scripts/third-party.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "Lector y editor de Markdown y PDF",
+  "author": "Esteban D. Salas Herrera",
+  "license": "Apache-2.0",
+  "description": "Lector y editor de Markdown y PDF, ligero y rapido",
   "private": "true",
   "type": "module",
   "devDependencies": {

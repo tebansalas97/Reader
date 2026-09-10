@@ -32,7 +32,10 @@
       { action: 'toggleOutline', key: 'sidebar.outline', hint: 'Ctrl+Shift+U' },
       { action: 'toggleZen', key: 'view.zen', hint: 'F11' },
     ],
-    [{ action: 'settings', key: 'menu.settings', hint: 'Ctrl+,' }],
+    [
+      { action: 'settings', key: 'menu.settings', hint: 'Ctrl+,' },
+      { action: 'about', key: 'menu.about', hint: '' },
+    ],
   ];
 
   function choose(action: string): void {

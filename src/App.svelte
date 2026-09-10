@@ -1,5 +1,6 @@
 <script lang="ts">
   import { convertFileSrc } from '@tauri-apps/api/core';
+  import { getVersion } from '@tauri-apps/api/app';
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
@@ -75,6 +76,7 @@
   import StampLibrary from '$lib/ui/pdf/StampLibrary.svelte';
   import PdfView from '$lib/ui/pdf/PdfView.svelte';
   import Preview from '$lib/ui/Preview.svelte';
+  import About from '$lib/ui/About.svelte';
   import Settings from '$lib/ui/Settings.svelte';
   import Sidebar from '$lib/ui/Sidebar.svelte';
   import SplitPane from '$lib/ui/SplitPane.svelte';
@@ -115,6 +117,7 @@
   let pdfScale = $state(1);
   let printImages = $state<string[]>([]);
   let printing = $state(false);
+  let appVersion = $state('');
   let pdfHandle = $state<PdfHandle | null>(null);
   let pdfOutline = $state<OutlineEntry[]>([]);
   let spellMenu = $state<{
@@ -716,6 +719,7 @@
         else if (ui.zen) ui.zen = false;
       },
       settings: () => (ui.settingsOpen = true),
+      about: () => (ui.aboutOpen = true),
       nextTab: () => cycleTab(1),
       prevTab: () => cycleTab(-1),
       exportHtml: () => void exportHtmlFlow(),
@@ -816,6 +820,7 @@
       ui.sidebar = prefs.current.sidebarPanel;
       loadPersonal(prefs.current.personalDictionary);
       await stamps.load().catch(() => undefined);
+      appVersion = await getVersion().catch(() => '');
       await recent.load();
       if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder, false);
 
@@ -1170,6 +1175,10 @@
       }
     }}
   />
+{/if}
+
+{#if ui.aboutOpen}
+  <About version={appVersion} onclose={() => (ui.aboutOpen = false)} />
 {/if}
 
 {#if ui.settingsOpen}

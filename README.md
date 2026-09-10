@@ -74,6 +74,7 @@ npm run tauri dev
 | `npm run check` | Comprueba tipos en TypeScript y Svelte |
 | `npm run build:app` | Compila el instalador NSIS |
 | `npm run perf` | Mide arranque, memoria y tamaño, y escribe `docs/perf.md` |
+| `npm run licenses` | Regenera `THIRD-PARTY.md` con las licencias de todo lo instalado |
 | `cargo test` | Ejecuta las pruebas de Rust, desde `src-tauri` |
 
 También desde la línea de órdenes:
@@ -135,3 +136,18 @@ Las cifras medidas y los presupuestos están en `docs/perf.md`. El resumen: el
 instalador ocupa 3.7 MB, la app arranca en 88 ms con un documento de 100 KB y
 consume alrededor de una sexta parte de la memoria privada de Visual Studio Code
 en la misma máquina.
+
+## Licencia
+
+Reader se publica con la [licencia Apache 2.0](LICENSE).
+
+Copyright 2026 Esteban D. Salas Herrera.
+
+Es código abierto, no código sin dueño: si lo usas, lo modificas o lo redistribuyes,
+en código o en binario, tienes que **reconocer a su autor**. En concreto, la cláusula
+4 de la licencia te obliga a conservar el aviso de copyright y a entregar el
+contenido de [`NOTICE`](NOTICE) con lo que distribuyas, y a hacer constar los
+archivos que hayas modificado.
+
+Los componentes de terceros que viajan dentro llevan su propia licencia; están todos
+en [`THIRD-PARTY.md`](THIRD-PARTY.md), que se regenera con `npm run licenses`.
