@@ -55,6 +55,9 @@
 
   <div class="row">
     <button class="link" onclick={() => void openExternal(REPOSITORY)}>{t('about.source')}</button>
+    <button class="link" onclick={() => void openExternal(`${REPOSITORY}/releases`)}>
+      {t('about.updates')}
+    </button>
     <div class="grow"></div>
     <button class="text" onclick={onclose}>{t('about.close')}</button>
   </div>
@@ -152,6 +155,7 @@
   .row {
     display: flex;
     align-items: center;
+    gap: 12px;
     margin-top: 4px;
   }
 
