@@ -6,6 +6,7 @@ import {
   PdfWriteError,
   saveWritten,
 } from './annotations/write';
+import { applyTextEdits, type EditReport, type TextEdit } from './edit/document';
 import type { FieldValues, FormField } from './forms/model';
 import { applyFields } from './forms/write';
 import { samePlan, withoutLostPages, type PageEdit } from './pages';
@@ -19,6 +20,12 @@ export interface PdfSaveInput {
   fields?: FormField[];
   fieldValues?: FieldValues;
   savedFieldValues?: FieldValues;
+  edits?: TextEdit[];
+}
+
+export interface SavedPdf {
+  bytes: Uint8Array;
+  edits: EditReport[];
 }
 
 type PdfLib = typeof import('pdf-lib');
@@ -49,9 +56,15 @@ function applyPlan(
 }
 
 export async function buildSavedPdf(input: PdfSaveInput): Promise<Uint8Array> {
+  return (await buildSavedPdfWithReport(input)).bytes;
+}
+
+export async function buildSavedPdfWithReport(input: PdfSaveInput): Promise<SavedPdf> {
   const lib = await import('pdf-lib');
   const document = await loadForWriting(input.bytes);
   const sourcePages = document.getPages();
+
+  const edits = await applyTextEdits(document, input.edits ?? []);
 
   await applyFields(
     document,
@@ -70,7 +83,7 @@ export async function buildSavedPdf(input: PdfSaveInput): Promise<Uint8Array> {
     sourcePages,
   );
 
-  return saveWritten(document);
+  return { bytes: await saveWritten(document), edits };
 }
 
 export async function extractPages(bytes: Uint8Array, sources: number[]): Promise<Uint8Array> {

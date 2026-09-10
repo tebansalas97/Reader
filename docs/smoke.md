@@ -222,3 +222,22 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 68. Con un PDF abierto, «Exportar a PDF» y «Exportar a HTML» están en gris.
 69. Desde la consola: `reader.exe documento.md --export-pdf salida.pdf` escribe
     el archivo y cierra la app.
+
+## Editar el texto de un PDF
+
+70. Abre un PDF con texto y pulsa la herramienta de editar texto en la barra.
+    El texto de la página se tiñe de azul: es lo que se puede señalar.
+71. Pulsa un fragmento. Se abre un cuadro con ese texto tal cual está en el
+    archivo.
+72. Escribe algo más corto y aplica. El fragmento queda marcado con el texto
+    nuevo y la barra pasa a «Sin guardar». Púlsalo otra vez para deshacerlo.
+73. Escribe algo más largo de lo que cabe: el cuadro se pone en rojo, dice
+    cuántos puntos sobran y no deja aplicar.
+74. Escribe un carácter que la fuente no tenga (por ejemplo 漢): dice cuál es y
+    no deja aplicar.
+75. Guarda. Vuelve a abrir el archivo: el texto nuevo está dentro, se puede
+    seleccionar y copiar, y lo que había a la derecha en la misma línea no se
+    ha movido.
+76. Prueba en un PDF hecho con Word o exportado desde el navegador. Si la
+    fuente no se puede reescribir, lo dice al pulsar el fragmento en vez de
+    dejarte escribir para nada.

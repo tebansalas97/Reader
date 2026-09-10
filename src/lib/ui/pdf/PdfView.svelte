@@ -9,6 +9,11 @@
     type PageBox,
   } from '$lib/pdf/annotations/selection';
   import { readAnnotations } from '$lib/pdf/annotations/read';
+  import type { TextEdit } from '$lib/pdf/edit/document';
+  import type { TextRun } from '$lib/pdf/edit/runs';
+  import type { TextPiece } from '$lib/pdf/text-layer';
+  import { editFor, textEdits } from '$lib/state/textedit.svelte';
+  import TextEditPopover from './TextEditPopover.svelte';
   import { fieldsOnPage, type FormField } from '$lib/pdf/forms/model';
   import { readFields } from '$lib/pdf/forms/read';
   import { movedBy } from '$lib/pdf/annotations/transform';
@@ -47,6 +52,8 @@
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
     ondelete?: (id: string) => void;
+    onedit?: (edit: TextEdit) => void;
+    onunedit?: (id: string) => void;
   }
 
   const {
@@ -66,6 +73,8 @@
     onselect,
     onchange,
     ondelete,
+    onedit,
+    onunedit,
   }: Props = $props();
 
   const GAP = 16;
@@ -113,6 +122,19 @@
   const heights = $derived(pageHeights(sizes, scale, rotation));
   const range = $derived(visibleRange(heights, scrollTop - PADDING, viewportHeight, 2, GAP));
   const annotations = $derived(doc?.annotations ?? []);
+  const edits = $derived(doc?.edits ?? []);
+  const picking = $derived(tool === 'text');
+
+  let editing = $state<{
+    page: number;
+    run: TextRun;
+    oldText: string;
+    value: string;
+    problem: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  let checking = $state(false);
   const byPage = $derived(
     annotations.reduce((map, annotation) => {
       const list = map.get(annotation.page);
@@ -361,6 +383,52 @@
     return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
   }
 
+  async function pickText(page: number, piece: TextPiece, at: DOMRect): Promise<void> {
+    const path = doc?.path;
+    if (!path || !doc) return;
+
+    await textEdits.open(doc.id, path);
+    const found = await textEdits.runAt(page, piece.originX, piece.originY);
+    if (!found) {
+      onfailed?.(t('pdf.editNotFound'));
+      return;
+    }
+
+    editing = {
+      page,
+      run: found.run,
+      oldText: found.text,
+      value: found.text,
+      problem: '',
+      x: at.left + at.width / 2,
+      y: at.bottom,
+    };
+    await checkEditing(found.text);
+  }
+
+  async function checkEditing(value: string): Promise<void> {
+    const current = editing;
+    if (!current) return;
+    checking = true;
+    const outcome = await textEdits.check(current.page, current.run, value);
+    checking = false;
+    if (!editing) return;
+    editing = {
+      ...editing,
+      value,
+      problem: outcome.ok ? '' : t(`pdf.editWhy.${outcome.reason}`, { detail: outcome.detail }),
+    };
+  }
+
+  function commitEdit(): void {
+    const current = editing;
+    if (!current || current.problem !== '') return;
+    if (current.value !== current.oldText) {
+      onedit?.(editFor(current.page, current.run, current.oldText, current.value));
+    }
+    editing = null;
+  }
+
   function pageIndexOfSource(source: number): number {
     return plan.findIndex((entry) => entry.source === source);
   }
@@ -457,6 +525,22 @@
           {author}
           {selectedId}
           {stamp}
+          edits={edits.filter((entry) => entry.page === (plan[index]?.source ?? index + 1))}
+          {picking}
+          onpick={(piece) => {
+            const element = scroller?.querySelector<HTMLElement>(
+              `.page[data-page="${plan[index]?.source ?? index + 1}"]`,
+            );
+            const box = element?.getBoundingClientRect();
+            if (box) {
+              void pickText(plan[index]?.source ?? index + 1, piece, {
+                left: box.left + piece.left,
+                bottom: box.top + piece.top + piece.height,
+                width: piece.width,
+              } as DOMRect);
+            }
+          }}
+          onunedit={(id) => onunedit?.(id)}
           oncreate={(annotation) => oncreate?.([annotation])}
           onselect={(id) => onselect?.(id)}
           onchange={(annotation) => onchange?.(annotation)}
@@ -465,6 +549,19 @@
     </div>
   {/if}
 </div>
+
+{#if editing}
+  <TextEditPopover
+    x={editing.x}
+    y={editing.y}
+    value={editing.value}
+    problem={editing.problem}
+    busy={checking}
+    onchange={(value) => void checkEditing(value)}
+    oncommit={commitEdit}
+    oncancel={() => (editing = null)}
+  />
+{/if}
 
 {#if selected && anchor}
   <AnnotationPopover

@@ -8,6 +8,8 @@ export interface TextPiece {
   width: number;
   height: number;
   angle: number;
+  originX: number;
+  originY: number;
 }
 
 interface RawItem {
@@ -41,7 +43,7 @@ export function pieceFrom(item: RawItem, matrix: Matrix, scale: number): TextPie
   const left = angle === 0 ? placed[4] : placed[4] + height * Math.sin(angle);
   const top = angle === 0 ? placed[5] - height : placed[5] - height * Math.cos(angle);
 
-  return { text, left, top, width, height, angle };
+  return { text, left, top, width, height, angle, originX: transform[4], originY: transform[5] };
 }
 
 export function piecesFrom(

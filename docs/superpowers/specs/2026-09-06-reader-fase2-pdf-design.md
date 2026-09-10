@@ -394,6 +394,33 @@ como una anotación de tinta con el ancho de una firma. Por eso se puede mover,
 estirar y girar como cualquier dibujo, viaja dentro del archivo y se imprime.
 Una firma criptográfica es otra cosa y no entra aquí.
 
+## 8.3 Fase 3: editar el texto existente
+
+Un PDF no guarda párrafos, guarda instrucciones de dibujo. Editar texto es, en
+realidad, reescribir una instrucción del flujo de contenido de la página.
+
+Reader lo hace en cuatro pasos:
+
+1. **Leer.** Un lector propio tokeniza el flujo de contenido sin tropezar con
+   cadenas, comentarios ni imágenes en línea, y recuerda dónde estaba cada
+   token.
+2. **Situar.** Una máquina de estado recorre el flujo llevando la matriz de la
+   página y la del texto, y devuelve cada fragmento con su fuente, su tamaño,
+   su posición y cuánto ocupa. Esa posición es la misma que da pdf.js, que es
+   lo que permite pulsar en pantalla y saber qué instrucción hay que tocar.
+3. **Escribir.** El texto nuevo se codifica con la codificación de la fuente y
+   se mide con sus anchos. La diferencia de ancho se compensa con un ajuste
+   dentro de un array `TJ`, así que lo que viene detrás en la misma línea no se
+   mueve.
+4. **Negarse.** Si el texto no cabe, si la fuente no tiene algún carácter, si no
+   se puede medir, si es una fuente compuesta o si el fragmento ya no está donde
+   estaba, Reader lo dice y no toca el archivo. Se comprueba al escribir, no al
+   guardar, para no dar falsas esperanzas.
+
+Alcance real: fuentes simples (Type1 y TrueType) con codificación WinAnsi o
+estándar, un fragmento de una línea, sin reflujo entre líneas ni entre páginas.
+Las fuentes compuestas (las que usa Word para muchos idiomas) quedan fuera.
+
 ## 9. Fase 3, para que conste
 
 Editar el texto existente. Alcance realista: seleccionar un fragmento de una

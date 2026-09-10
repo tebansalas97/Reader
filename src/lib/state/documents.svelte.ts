@@ -14,6 +14,7 @@ import {
   type FieldValues,
   type FormField,
 } from '$lib/pdf/forms/model';
+import type { TextEdit } from '$lib/pdf/edit/document';
 import { initialPlan, planAfterSave, samePlan, type PageEdit } from '$lib/pdf/pages';
 
 export const LARGE_FILE_BYTES = 20 * 1024 * 1024;
@@ -53,6 +54,7 @@ export interface PdfDocument extends BaseDocument {
   fields: FormField[];
   fieldValues: FieldValues;
   savedFieldValues: FieldValues;
+  edits: TextEdit[];
   encrypted: boolean;
 }
 
@@ -71,6 +73,7 @@ export function isPdf(doc: Document | null): doc is PdfDocument {
 export function documentIsDirty(doc: Document): boolean {
   if (doc.kind === 'markdown') return doc.text !== doc.savedText;
   if (!samePlan(doc.pages, doc.savedPages)) return true;
+  if (doc.edits.length > 0) return true;
   if (!sameValues(doc.fieldValues, doc.savedFieldValues)) return true;
   return !sameAnnotations(doc.annotations, doc.savedAnnotations);
 }
@@ -128,6 +131,7 @@ function blankPdf(path: string, info: PdfOpenInfo): PdfDocument {
     fields: [],
     fieldValues: {},
     savedFieldValues: {},
+    edits: [],
     encrypted: info.encrypted,
   };
 }
@@ -273,6 +277,25 @@ class DocumentsStore {
     doc.assetUrl = `${assetUrl}${assetUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
   }
 
+  addEdit(id: string, edit: TextEdit): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    const others = doc.edits.filter(
+      (entry) => entry.page !== edit.page || Math.hypot(entry.x - edit.x, entry.y - edit.y) > 1.5,
+    );
+    doc.edits = [...others, edit];
+  }
+
+  removeEdit(id: string, editId: string): void {
+    const doc = this.pdfById(id);
+    if (doc) doc.edits = doc.edits.filter((entry) => entry.id !== editId);
+  }
+
+  clearEdits(id: string): void {
+    const doc = this.pdfById(id);
+    if (doc) doc.edits = [];
+  }
+
   loadFields(id: string, fields: FormField[]): void {
     const doc = this.pdfById(id);
     if (!doc) return;
@@ -326,6 +349,7 @@ class DocumentsStore {
     if (!doc) return;
     doc.savedAnnotations = doc.annotations.map((a) => ({ ...a }));
     doc.savedFieldValues = { ...doc.fieldValues };
+    doc.edits = [];
     doc.pages = planAfterSave(doc.pages);
     doc.savedPages = doc.pages.map((entry) => ({ ...entry }));
     doc.pageCount = doc.pages.length;

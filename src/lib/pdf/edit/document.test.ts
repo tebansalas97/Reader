@@ -38,6 +38,8 @@ async function edit(bytes: Uint8Array, changes: Array<Partial<TextEdit> & { newT
     page: 1,
     x: change.x ?? origin.x,
     y: change.y ?? origin.y,
+    width: run.advance,
+    height: run.size,
     oldText: change.oldText ?? run.bytes,
     newText: change.newText,
   }));
@@ -90,6 +92,8 @@ describe('matchRun', () => {
       page: 1,
       x: 50.2,
       y: 700.1,
+      width: 10,
+      height: 18,
       oldText: 'Hola mundo entero',
       newText: 'x',
     });
@@ -103,6 +107,8 @@ describe('matchRun', () => {
       page: 1,
       x: 300,
       y: 300,
+      width: 10,
+      height: 18,
       oldText: 'Hola mundo entero',
       newText: 'x',
     });
@@ -131,7 +137,16 @@ describe('applyTextEdits', () => {
     const origin = originOf(run);
 
     await applyTextEdits(document, [
-      { id: 'e1', page: 1, x: origin.x, y: origin.y, oldText: run.bytes, newText: 'un' },
+      {
+        id: 'e1',
+        page: 1,
+        x: origin.x,
+        y: origin.y,
+        width: run.advance,
+        height: run.size,
+        oldText: run.bytes,
+        newText: 'un',
+      },
     ]);
     const after = await readPageText(document, 1);
     expect(after!.runs[0]!.advance).toBeCloseTo(run.advance, 1);
@@ -171,7 +186,16 @@ describe('applyTextEdits', () => {
     const origin = originOf(run);
 
     const reports = await applyTextEdits(document, [
-      { id: 'a', page: 1, x: origin.x, y: origin.y, oldText: run.bytes, newText: 'ABC' },
+      {
+        id: 'a',
+        page: 1,
+        x: origin.x,
+        y: origin.y,
+        width: run.advance,
+        height: run.size,
+        oldText: run.bytes,
+        newText: 'ABC',
+      },
     ]);
     expect(reports).toHaveLength(1);
     expect(reports[0]?.done).toBe(true);

@@ -173,6 +173,20 @@
 
   <button
     class="tool"
+    class:on={tool === 'text'}
+    title={t('pdf.editText')}
+    aria-label={t('pdf.editText')}
+    aria-pressed={tool === 'text'}
+    onclick={() => ontool('text')}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M3 4V3h8v1M7 3v10M5.5 13h3" />
+      <path d="M11 11.5l3-3 1.2 1.2-3 3-1.5.3z" />
+    </svg>
+  </button>
+
+  <button
+    class="tool"
     class:on={tool === 'signature'}
     title={t('pdf.tool.signature')}
     aria-label={t('pdf.tool.signature')}

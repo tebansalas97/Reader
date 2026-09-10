@@ -12,8 +12,10 @@
   } from '$lib/pdf/text-layer';
   import type { FieldValues, FormField } from '$lib/pdf/forms/model';
   import type { StampItem } from '$lib/state/stamps.svelte';
+  import type { TextEdit } from '$lib/pdf/edit/document';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
+  import TextEditLayer from './TextEditLayer.svelte';
   import FormLayer from './FormLayer.svelte';
 
   interface Props {
@@ -37,6 +39,10 @@
     fields?: FormField[];
     values?: FieldValues;
     onvalue?: (name: string, value: string) => void;
+    edits?: TextEdit[];
+    picking?: boolean;
+    onpick?: (piece: TextPiece) => void;
+    onunedit?: (id: string) => void;
   }
 
   const {
@@ -60,6 +66,10 @@
     fields = [],
     values = {},
     onvalue,
+    edits = [],
+    picking = false,
+    onpick,
+    onunedit,
   }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -136,11 +146,25 @@
 >
   <canvas bind:this={canvas} aria-label="Página {index + 1}"></canvas>
   {#if live && pieces.length > 0}
-    <div class="text-layer">
+    <div class="text-layer" class:picking>
       {#each pieces as piece, i (i)}
-        <span bind:this={spans[i]} style={styleFor(piece)}>{piece.text}</span>
+        <span
+          bind:this={spans[i]}
+          style={styleFor(piece)}
+          role={picking ? 'button' : undefined}
+          tabindex={picking ? -1 : undefined}
+          onpointerdown={(event) => {
+            if (!picking) return;
+            event.stopPropagation();
+            event.preventDefault();
+            onpick?.(piece);
+          }}
+        >{piece.text}</span>
       {/each}
     </div>
+  {/if}
+  {#if live && edits.length > 0}
+    <TextEditLayer {size} {scale} {rotation} {edits} onremove={(id) => onunedit?.(id)} />
   {/if}
   {#if live && fields.length > 0}
     <FormLayer
@@ -204,6 +228,15 @@
     white-space: pre;
     transform-origin: 0 0;
     color: transparent;
+  }
+
+  .text-layer.picking span {
+    cursor: pointer;
+    background: rgba(64, 120, 240, 0.14);
+  }
+
+  .text-layer.picking span:hover {
+    background: rgba(64, 120, 240, 0.3);
   }
 
   .text-layer span::selection {

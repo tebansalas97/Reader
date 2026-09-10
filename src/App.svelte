@@ -40,6 +40,7 @@
   import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
   import { recent } from '$lib/state/recent.svelte';
   import { newStampId, stamps } from '$lib/state/stamps.svelte';
+  import { textEdits } from '$lib/state/textedit.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { ui } from '$lib/state/ui.svelte';
   import { registerShortcuts } from '$lib/shortcuts';
@@ -63,7 +64,7 @@
     turnPages,
   } from '$lib/pdf/pages';
   import { MANY_PAGES, renderForPrint } from '$lib/pdf/print';
-  import { buildSavedPdf, extractPages } from '$lib/pdf/save';
+  import { buildSavedPdfWithReport, extractPages } from '$lib/pdf/save';
   import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
@@ -215,7 +216,7 @@
       const pages = $state.snapshot(doc.pages) as PdfDocument['pages'];
       const savedPages = $state.snapshot(doc.savedPages) as PdfDocument['pages'];
       const bytes = await readBytesRaw(source);
-      const next = await buildSavedPdf({
+      const written = await buildSavedPdfWithReport({
         bytes,
         pages,
         savedPages,
@@ -224,7 +225,10 @@
         fields: $state.snapshot(doc.fields) as PdfDocument['fields'],
         fieldValues: $state.snapshot(doc.fieldValues) as PdfDocument['fieldValues'],
         savedFieldValues: $state.snapshot(doc.savedFieldValues) as PdfDocument['fieldValues'],
+        edits: $state.snapshot(doc.edits) as PdfDocument['edits'],
       });
+      const next = written.bytes;
+      const failedEdits = written.edits.filter((report) => !report.done);
 
       const kept = withoutLostPages(current, pages);
       const check = await openPdfDocument(next);
@@ -252,7 +256,8 @@
       documents.markPdfSaved(doc.id, modifiedMs);
       ui.selectedAnnotation = null;
 
-      if (current.some((annotation) => annotation.kind === 'stamp')) {
+      textEdits.close();
+      if (written.edits.length > 0 || current.some((annotation) => annotation.kind === 'stamp')) {
         documents.refreshPdfSource(doc.id, convertFileSrc(destination));
       } else {
         pdfHandle?.hideFromCanvas(
@@ -261,7 +266,16 @@
             .map((annotation) => annotation.ref ?? ''),
         );
       }
-      toasts.push(t('pdf.saved'));
+      if (failedEdits.length > 0) {
+        toasts.error(
+          t('pdf.editSome', {
+            done: written.edits.length - failedEdits.length,
+            total: written.edits.length,
+          }),
+        );
+      } else {
+        toasts.push(t('pdf.saved'));
+      }
       return 'saved';
     } catch (error) {
       reportError('pdf.saveFailed', error);
@@ -1027,6 +1041,8 @@
               }}
               onselect={(id) => (ui.selectedAnnotation = id)}
               onchange={(annotation) => documents.updateAnnotation(activePdf.id, annotation)}
+              onedit={(edit) => documents.addEdit(activePdf.id, edit)}
+              onunedit={(id) => documents.removeEdit(activePdf.id, id)}
               ondelete={(id) => {
                 documents.removeAnnotation(activePdf.id, id);
                 ui.selectedAnnotation = null;

@@ -9,6 +9,8 @@ export interface TextEdit {
   page: number;
   x: number;
   y: number;
+  width: number;
+  height: number;
   oldText: string;
   newText: string;
 }
