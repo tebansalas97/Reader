@@ -1,3 +1,4 @@
+mod startup;
 mod commands;
 mod error;
 
@@ -15,19 +16,22 @@ fn cli_export(app: &tauri::AppHandle) -> Option<String> {
 
 fn cli_paths(app: &tauri::AppHandle) -> Vec<String> {
     use tauri_plugin_cli::CliExt;
-    let Ok(matches) = app.cli().matches() else {
-        return Vec::new();
+    let parsed = match app.cli().matches() {
+        Ok(matches) => match matches.args.get("paths").map(|arg| arg.value.clone()) {
+            Some(serde_json::Value::String(s)) => vec![s],
+            Some(serde_json::Value::Array(a)) => a
+                .iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect(),
+            _ => Vec::new(),
+        },
+        Err(_) => Vec::new(),
     };
-    let Some(arg) = matches.args.get("paths") else {
-        return Vec::new();
-    };
-    match &arg.value {
-        serde_json::Value::String(s) => vec![s.clone()],
-        serde_json::Value::Array(a) => a
-            .iter()
-            .filter_map(|v| v.as_str().map(str::to_owned))
-            .collect(),
-        _ => Vec::new(),
+
+    if parsed.is_empty() {
+        startup::paths_from_argv(std::env::args())
+    } else {
+        parsed
     }
 }
 

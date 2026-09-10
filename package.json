@@ -18,7 +18,8 @@
     "prebuild": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
     "pretest": "node scripts/sync-dictionaries.mjs && node scripts/sync-pdf-worker.mjs",
     "licenses": "node scripts/third-party.mjs",
-    "widths": "node scripts/helvetica-widths.mjs"
+    "widths": "node scripts/helvetica-widths.mjs",
+    "e2e": "node tests/e2e/run.mjs"
   },
   "keywords": [],
   "author": "Esteban D. Salas Herrera",

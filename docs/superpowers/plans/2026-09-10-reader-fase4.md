@@ -173,7 +173,15 @@ traducir cuatrocientas cadenas sin nadie que las revise deja una interfaz peor.
 
 ## Etapa F — pruebas de extremo a extremo
 
-### Tarea 24: `tauri-driver`
+### Tarea 24: `tauri-driver` — hecha
+
+**Archivos:** `tests/e2e/driver.mjs`, `run.mjs`, `prefs.mjs`, `docs/pruebas-e2e.md`.
+
+Nueve pruebas que arrancan la aplicación compilada y la manejan por WebDriver,
+sin dependencias nuevas: el cliente son cuatro llamadas HTTP. El documento entra
+por la sesión guardada, porque el controlador añade sus propias opciones y la
+ruta de la línea de órdenes no llega. De paso, `cli_paths` en Rust ahora se queda
+con los documentos que reconoce en `argv` cuando el analizador de opciones falla.
 
 ## Orden
 

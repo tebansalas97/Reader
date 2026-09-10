@@ -99,6 +99,8 @@ npm run tauri dev
 | `npm run perf` | Mide arranque, memoria y tamaño, y escribe `docs/perf.md` |
 | `npm run licenses` | Regenera `THIRD-PARTY.md` con las licencias de todo lo instalado |
 | `cargo test` | Ejecuta las pruebas de Rust, desde `src-tauri` |
+| `npm run e2e` | Maneja la app compilada por WebDriver (ver `docs/pruebas-e2e.md`) |
+| `npm run widths` | Regenera la tabla de anchos de Helvetica |
 
 También desde la línea de órdenes:
 

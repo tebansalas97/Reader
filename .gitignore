@@ -14,3 +14,4 @@ bash.exe.stackdump
 public/dictionaries/
 public/pdf/
 tests/fixtures/*.pdf
+tools/
