@@ -3,6 +3,7 @@
   import type { Annotation, Rect as PdfRect } from '$lib/pdf/annotations/model';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
+  import { needsTile, sameBox, tileFor, type Box } from '$lib/pdf/tiles';
   import {
     piecesFrom,
     scaleXFor,
@@ -25,6 +26,7 @@
     scale: number;
     rotation: number;
     live: boolean;
+    keep?: boolean;
     getPage: (index: number) => Promise<PDFPageProxy>;
     onfailed?: (index: number) => void;
     annotations?: Annotation[];
@@ -39,6 +41,7 @@
     ghosts?: Record<string, string>;
     onghost?: (id: string, image: string) => void;
     repaint?: number;
+    scrolled?: number;
     onchange?: (annotation: Annotation) => void;
     fields?: FormField[];
     values?: FieldValues;
@@ -58,6 +61,7 @@
     scale,
     rotation,
     live,
+    keep = true,
     getPage,
     onfailed,
     annotations = [],
@@ -79,12 +83,15 @@
     ghosts = {},
     onghost,
     repaint = 0,
+    scrolled = 0,
     picking = false,
     onpick,
     onunedit,
   }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
+  let root = $state<HTMLElement | null>(null);
+  let tile = $state<Box | null>(null);
   let failed = $state(false);
   let drawn = $state(false);
   let pieces = $state<TextPiece[]>([]);
@@ -135,19 +142,50 @@
   });
 
   $effect(() => {
+    void scrolled;
+    const element = root;
+    const pageBox = { x: 0, y: 0, width: box.cssWidth, height: box.cssHeight };
+    if (!element || !live) return;
+
+    const density = Math.min(3, Math.max(1, globalThis.devicePixelRatio ?? 1));
+    if (!needsTile(pageBox, density)) {
+      if (tile !== null) tile = null;
+      return;
+    }
+
+    const scroller = element.closest('.viewer');
+    const here = element.getBoundingClientRect();
+    const view = scroller
+      ? scroller.getBoundingClientRect()
+      : { left: 0, top: 0, width: globalThis.innerWidth, height: globalThis.innerHeight };
+
+    const wanted = tileFor(pageBox, {
+      x: view.left - here.left,
+      y: view.top - here.top,
+      width: view.width,
+      height: view.height,
+    });
+    if (!sameBox(wanted, tile)) tile = wanted;
+  });
+
+  $effect(() => {
     const node = canvas;
     const currentScale = scale;
     const currentRotation = rotation;
     const currentSize = size;
     const currentIndex = index;
     const isLive = live;
+    const keeping = keep;
+    const currentTile = tile;
     void repaint;
 
     if (!node) return;
     if (!isLive) {
-      releaseCanvas(node);
-      pieces = [];
-      drawn = false;
+      if (!keeping) {
+        releaseCanvas(node);
+        pieces = [];
+        drawn = false;
+      }
       return;
     }
 
@@ -158,7 +196,7 @@
       try {
         const page = await getPage(currentIndex + 1);
         if (cancelled) return;
-        await renderer.render(page, currentScale, currentSize.rotation + currentRotation);
+        await renderer.render(page, currentScale, currentSize.rotation + currentRotation, currentTile);
         if (cancelled) return;
         failed = false;
         drawn = true;
@@ -182,12 +220,21 @@
 </script>
 
 <div
+  bind:this={root}
   class="page"
   class:live
   data-page={page}
   style="width: {box.cssWidth}px; height: {box.cssHeight}px"
 >
-  <canvas bind:this={canvas} class:night aria-label="Página {index + 1}"></canvas>
+  <canvas
+    bind:this={canvas}
+    class:night
+    class:tiled={tile !== null}
+    style={tile
+      ? `left: ${tile.x}px; top: ${tile.y}px; width: ${tile.width}px; height: ${tile.height}px`
+      : ''}
+    aria-label="Página {index + 1}"
+  ></canvas>
   {#if live && pieces.length > 0}
     <div class="text-layer" class:picking>
       {#each pieces as piece, i (i)}
@@ -271,6 +318,10 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  canvas.tiled {
+    position: absolute;
   }
 
   canvas.night {

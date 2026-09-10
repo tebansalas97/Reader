@@ -1,7 +1,7 @@
 import { render } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const renders: Array<{ scale: number; rotation: number }> = [];
+const renders: Array<{ scale: number; rotation: number; tile: unknown }> = [];
 const cancels = { count: 0 };
 
 vi.mock('$lib/pdf/render', async () => {
@@ -9,8 +9,8 @@ vi.mock('$lib/pdf/render', async () => {
   return {
     ...actual,
     createPageRenderer: () => ({
-      async render(_page: unknown, scale: number, rotation: number) {
-        renders.push({ scale, rotation });
+      async render(_page: unknown, scale: number, rotation: number, tile: unknown) {
+        renders.push({ scale, rotation, tile: tile ?? null });
       },
       cancel() {
         cancels.count += 1;
@@ -82,7 +82,7 @@ describe('PdfPage', () => {
   it('draws with the zoom and the rotation it was given', async () => {
     render(PdfPage, props({ scale: 1.5, rotation: 180 }));
     await settle();
-    expect(renders[0]).toEqual({ scale: 1.5, rotation: 180 });
+    expect(renders[0]).toEqual({ scale: 1.5, rotation: 180, tile: null });
   });
 
   it('draws a page that the file already had turned at its own rotation', async () => {
@@ -108,7 +108,7 @@ describe('PdfPage', () => {
   it('frees the canvas when the page leaves the view', async () => {
     const { container, rerender } = render(PdfPage, props());
     await settle();
-    await rerender(props({ live: false }));
+    await rerender(props({ live: false, keep: false }));
     await settle();
     expect(container.querySelector('canvas')?.width).toBe(0);
   });
@@ -156,6 +156,15 @@ describe('PdfPage', () => {
     expect(onfailed).toHaveBeenCalledWith(4);
   });
 
+  it('keeps a page that is just out of view drawn', async () => {
+    const { container, rerender } = render(PdfPage, props());
+    await settle();
+    const before = container.querySelector('canvas')?.width;
+    await rerender(props({ live: false, keep: true }));
+    await settle();
+    expect(container.querySelector('canvas')?.width).toBe(before);
+  });
+
   it('inverts the canvas in night mode', async () => {
     const { container } = render(PdfPage, props({ night: true }));
     await settle();
@@ -179,5 +188,19 @@ describe('PdfPage', () => {
     );
     await settle();
     expect(container.querySelector('.placeholder')).not.toBeNull();
+  });
+
+  it('draws the whole page when it fits in one canvas', async () => {
+    render(PdfPage, props());
+    await settle();
+    expect(renders[0]?.tile).toBeNull();
+  });
+
+  it('draws only a piece of a page blown up beyond the canvas limit', async () => {
+    render(PdfPage, props({ size: { width: 3000, height: 4000, rotation: 0 }, scale: 2 }));
+    await settle();
+    const tile = renders[renders.length - 1]?.tile as { width: number } | null;
+    expect(tile).not.toBeNull();
+    expect(tile!.width).toBeLessThan(6000);
   });
 });

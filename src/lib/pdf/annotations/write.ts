@@ -194,7 +194,7 @@ export async function loadForWriting(bytes: Uint8Array): Promise<PDFDocument> {
 
 export async function saveWritten(document: PDFDocument): Promise<Uint8Array> {
   try {
-    return await document.save({ useObjectStreams: false });
+    return await document.save({ useObjectStreams: true });
   } catch (error) {
     throw new PdfWriteError('broken', error instanceof Error ? error.message : String(error));
   }

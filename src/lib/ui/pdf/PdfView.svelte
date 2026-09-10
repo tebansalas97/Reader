@@ -97,12 +97,14 @@
 
   const GAP = 16;
   const PADDING = 24;
+  const KEEP = 6;
 
   let scroller = $state<HTMLElement | null>(null);
   let handle = $state<PdfHandle | null>(null);
   let viewportWidth = $state(0);
   let viewportHeight = $state(0);
   let scrollTop = $state(0);
+  let scrollLeft = $state(0);
   let loading = $state(true);
   let programmatic = false;
   let lastScale = 0;
@@ -139,6 +141,7 @@
   const rows = $derived(rowsFor(mode, sizes.length, doc?.page ?? 1));
   const bands = $derived(rowHeights(rows, heights));
   const range = $derived(visibleRange(bands, scrollTop - PADDING, viewportHeight, 2, GAP));
+  const kept = $derived(visibleRange(bands, scrollTop - PADDING, viewportHeight, KEEP, GAP));
   const annotations = $derived(doc?.annotations ?? []);
   const edits = $derived(doc?.edits ?? []);
   const picking = $derived(tool === 'text');
@@ -274,6 +277,7 @@
     const node = scroller;
     if (!node) return;
     scrollTop = node.scrollTop;
+    scrollLeft = node.scrollLeft;
     if (programmatic || bands.length === 0 || mode === 'single') return;
     const first = visibleRange(bands, node.scrollTop - PADDING, node.clientHeight, 0, GAP).first;
     const page = pageOfRow(rows, first);
@@ -609,6 +613,7 @@
           {scale}
           {rotation}
           live={band >= range.renderFirst && band <= range.renderLast}
+          keep={band >= kept.renderFirst && band <= kept.renderLast}
           getPage={(n) => handle!.page(plan[n - 1]?.source ?? n)}
           annotations={byPage.get(plan[index]?.source ?? index + 1) ?? []}
           fields={fieldsOnPage(doc?.fields ?? [], plan[index]?.source ?? index + 1)}
@@ -624,6 +629,7 @@
           {night}
           {ghosts}
           {repaint}
+          scrolled={scrollTop + scrollLeft}
           onghost={keepGhost}
           {picking}
           onpick={(piece) => {

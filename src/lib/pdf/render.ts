@@ -1,5 +1,6 @@
 import type { PDFPageProxy, RenderTask } from 'pdfjs-dist';
 import type { PageSize } from './document';
+import type { Box } from './tiles';
 
 export type ZoomMode = number | 'fit-width' | 'fit-page';
 
@@ -73,7 +74,7 @@ export function nextZoomStep(current: number, direction: 1 | -1): number {
 }
 
 export interface PageRenderer {
-  render(page: PDFPageProxy, scale: number, rotation: number): Promise<void>;
+  render(page: PDFPageProxy, scale: number, rotation: number, tile?: Box | null): Promise<void>;
   cancel(): void;
 }
 
@@ -81,16 +82,21 @@ export function createPageRenderer(canvas: HTMLCanvasElement): PageRenderer {
   let task: RenderTask | null = null;
 
   return {
-    async render(page, scale, rotation) {
+    async render(page, scale, rotation, tile = null) {
       task?.cancel();
       task = null;
 
       const ratio = globalThis.devicePixelRatio ?? 1;
-      const viewport = page.getViewport({ scale, rotation });
       const density = Math.min(3, Math.max(1, ratio));
+      const viewport = tile
+        ? page.getViewport({ scale, rotation, offsetX: -tile.x, offsetY: -tile.y })
+        : page.getViewport({ scale, rotation });
 
-      canvas.width = Math.max(1, Math.round(viewport.width * density));
-      canvas.height = Math.max(1, Math.round(viewport.height * density));
+      const width = tile ? tile.width : viewport.width;
+      const height = tile ? tile.height : viewport.height;
+
+      canvas.width = Math.max(1, Math.round(width * density));
+      canvas.height = Math.max(1, Math.round(height * density));
 
       const context = canvas.getContext('2d');
       if (!context) return;
