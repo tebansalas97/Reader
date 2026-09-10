@@ -6,7 +6,8 @@ export type AnnotationKind =
   | 'note'
   | 'rect'
   | 'ellipse'
-  | 'stamp';
+  | 'stamp'
+  | 'freetext';
 
 export interface Point {
   x: number;
@@ -44,13 +45,14 @@ export interface Annotation {
   ink?: Point[][];
   rect?: Rect;
   image?: string;
+  fontSize?: number;
   origin: 'reader' | 'file';
   ref?: string;
 }
 
 export const QUAD_KINDS: AnnotationKind[] = ['highlight', 'underline', 'strikeout'];
 export const IMAGE_KINDS: AnnotationKind[] = ['stamp'];
-export const RECT_KINDS: AnnotationKind[] = ['note', 'rect', 'ellipse'];
+export const RECT_KINDS: AnnotationKind[] = ['note', 'rect', 'ellipse', 'freetext'];
 
 export function usesQuads(kind: AnnotationKind): boolean {
   return QUAD_KINDS.includes(kind) || IMAGE_KINDS.includes(kind);
@@ -122,6 +124,7 @@ export function annotationKey(annotation: Annotation): string {
     annotation.rect ? rectKey(annotation.rect) : '',
     inkKey(annotation.ink ?? []),
     annotation.image ? digestOf(annotation.image) : '',
+    annotation.fontSize ?? '',
   ].join('|');
 }
 

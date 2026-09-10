@@ -41,6 +41,7 @@
     'underline',
     'strikeout',
     'note',
+    'freetext',
     'ink',
     'stamp',
     'rect',

@@ -94,6 +94,7 @@
       tool === 'rect' ||
       tool === 'ellipse' ||
       tool === 'note' ||
+      tool === 'freetext' ||
       tool === 'signature',
   );
   const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
@@ -348,7 +349,7 @@
       return;
     }
 
-    if ((tool === 'rect' || tool === 'ellipse') && start && end) {
+    if ((tool === 'rect' || tool === 'ellipse' || tool === 'freetext') && start && end) {
       const drawn = dragRect(start, end);
       if (bigEnough(drawn)) {
         const rect = toPdfRect(
@@ -428,6 +429,19 @@
           stroke={entry.annotation.color}
           stroke-width={entry.shape.strokeWidth}
         />
+      {/if}
+      {#if entry.shape.text}
+        {#each entry.shape.text.lines as line, i (i)}
+          <text
+            x={line.x}
+            y={line.y}
+            fill={entry.annotation.color}
+            font-size={entry.shape.text.size}
+            transform="rotate({entry.shape.text.angle}, {line.x}, {line.y})"
+          >
+            {line.text}
+          </text>
+        {/each}
       {/if}
       {#if entry.shape.note}
         <g class="note">
@@ -601,6 +615,12 @@
 
   .hit.grab {
     cursor: move;
+  }
+
+  text {
+    font-family: Helvetica, Arial, sans-serif;
+    white-space: pre;
+    dominant-baseline: alphabetic;
   }
 
   .outline {

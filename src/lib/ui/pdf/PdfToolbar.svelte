@@ -49,6 +49,7 @@
     { kind: 'note', path: 'M3 3h10v7H7l-3 3v-3H3z' },
     { kind: 'rect', path: 'M3 4h10v8H3z' },
     { kind: 'ellipse', path: 'M8 4c3 0 5 1.8 5 4s-2 4-5 4-5-1.8-5-4 2-4 5-4z' },
+    { kind: 'freetext', path: 'M3 4V3h10v1M8 3v10M6 13h4' },
   ];
 
   let pageInput = $state('');

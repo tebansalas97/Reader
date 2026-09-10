@@ -344,12 +344,20 @@ describe('readAnnotations', () => {
     const annotations = await read(
       await makeAnnotatedPdf([
         { subtype: 'Link', rect: [10, 10, 110, 60] },
-        { subtype: 'FreeText', rect: [10, 100, 110, 160] },
+        { subtype: 'Polygon', rect: [10, 100, 110, 160] },
         { subtype: 'Square', rect: [10, 200, 110, 260] },
       ]),
     );
     expect(annotations).toHaveLength(1);
     expect(annotations[0]?.kind).toBe('rect');
+  });
+
+  it('reads a text box written with another program', async () => {
+    const annotations = await read(
+      await makeAnnotatedPdf([{ subtype: 'FreeText', rect: [10, 100, 110, 160] }]),
+    );
+    expect(annotations).toHaveLength(1);
+    expect(annotations[0]?.kind).toBe('freetext');
   });
 
   it('gives nothing for a file with no annotations', async () => {

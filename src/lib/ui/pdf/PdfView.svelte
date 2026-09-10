@@ -448,6 +448,15 @@
     };
   });
 
+  function closePopover(): void {
+    const current = selected;
+    if (current && current.kind === 'freetext' && current.contents.trim() === '') {
+      ondelete?.([current.id]);
+      return;
+    }
+    onselect?.([]);
+  }
+
   function repaintable(annotation: Annotation): boolean {
     return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
   }
@@ -547,7 +556,7 @@
   }
 
   function onPointerDown(): void {
-    if (selectedIds.length > 0) onselect?.([]);
+    if (selectedIds.length > 0) closePopover();
   }
 
   export function setZoomMode(mode: PdfDocument['zoom']): void {
@@ -646,7 +655,7 @@
     y={anchor.y}
     onchange={(annotation) => onchange?.(annotation)}
     ondelete={(id) => ondelete?.([id])}
-    onclose={() => onselect?.([])}
+    onclose={closePopover}
   />
 {/if}
 

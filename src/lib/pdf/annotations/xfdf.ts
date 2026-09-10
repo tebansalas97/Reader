@@ -12,6 +12,7 @@ const TAGS: Record<AnnotationKind, string> = {
   rect: 'square',
   ellipse: 'circle',
   stamp: 'stamp',
+  freetext: 'freetext',
 };
 
 const KINDS = new Map<string, AnnotationKind>(

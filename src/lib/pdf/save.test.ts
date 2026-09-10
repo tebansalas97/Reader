@@ -280,3 +280,81 @@ describe('insertPages', () => {
     await expect(insertPages(await three(), rubbish, 0)).rejects.toBeInstanceOf(PdfWriteError);
   });
 });
+
+async function appearances(bytes: Uint8Array): Promise<string[]> {
+  const lib = await import('pdf-lib');
+  const document = await lib.PDFDocument.load(bytes, { updateMetadata: false });
+  const found: string[] = [];
+  for (const entry of document.context.enumerateIndirectObjects()) {
+    const object = entry[1];
+    if (!(object instanceof lib.PDFRawStream)) continue;
+    const subtype = object.dict.get(lib.PDFName.of('Subtype'));
+    if (subtype !== lib.PDFName.of('Form')) continue;
+    found.push(new TextDecoder('latin1').decode(lib.decodePDFRawStream(object).decode()));
+  }
+  return found;
+}
+
+describe('texto nuevo', () => {
+  function written(extra: Partial<Annotation> = {}): Annotation {
+    return {
+      id: 'f1',
+      page: 1,
+      kind: 'freetext',
+      color: '#1a1a1a',
+      opacity: 1,
+      contents: 'Texto anadido con Reader',
+      author: 'Esteban',
+      createdMs: Date.UTC(2024, 0, 2),
+      origin: 'reader',
+      rect: { x: 60, y: 600, width: 220, height: 60 },
+      ...extra,
+    };
+  }
+
+  it('deja el texto dibujado en la apariencia de la anotacion', async () => {
+    const bytes = await save(await three(), initialPlan(3), initialPlan(3), [written()], []);
+    const drawn = await appearances(bytes);
+    expect(drawn.join(String.fromCharCode(10))).toContain('(Texto anadido con Reader) Tj');
+  });
+
+  it('se vuelve a leer como anotacion de texto', async () => {
+    const bytes = await save(await three(), initialPlan(3), initialPlan(3), [written()], []);
+    const found = await readAnnotations(await reopen(bytes));
+    expect(found).toHaveLength(1);
+    expect(found[0]?.kind).toBe('freetext');
+    expect(found[0]?.contents).toBe('Texto anadido con Reader');
+  });
+
+  it('conserva el tamano de la letra', async () => {
+    const bytes = await save(
+      await three(),
+      initialPlan(3),
+      initialPlan(3),
+      [written({ fontSize: 20 })],
+      [],
+    );
+    const found = await readAnnotations(await reopen(bytes));
+    expect(found[0]?.fontSize).toBe(20);
+  });
+
+  it('conserva el color de la letra', async () => {
+    const bytes = await save(
+      await three(),
+      initialPlan(3),
+      initialPlan(3),
+      [written({ color: '#c92a2a' })],
+      [],
+    );
+    const found = await readAnnotations(await reopen(bytes));
+    expect(found[0]?.color).toBe('#c92a2a');
+  });
+
+  it('parte el texto largo en varias lineas', async () => {
+    const largo = written({ contents: 'uno dos tres cuatro cinco seis siete ocho nueve diez once' });
+    const bytes = await save(await three(), initialPlan(3), initialPlan(3), [largo], []);
+    const drawn = (await appearances(bytes)).join(String.fromCharCode(10));
+    expect(drawn).toContain('T*');
+    expect(drawn).toContain('once');
+  });
+});

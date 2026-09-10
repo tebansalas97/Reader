@@ -13,6 +13,7 @@ import {
 
 const KIND_BY_TYPE: Record<number, AnnotationKind> = {
   1: 'note',
+  3: 'freetext',
   5: 'rect',
   6: 'ellipse',
   9: 'highlight',
@@ -144,10 +145,24 @@ interface RawAnnotation {
   creationDate?: unknown;
   modificationDate?: unknown;
   hidden?: unknown;
+  defaultAppearanceData?: { fontSize?: unknown; fontColor?: unknown };
 }
 
 function textOf(holder: { str?: unknown } | undefined): string {
   return typeof holder?.str === 'string' ? holder.str : '';
+}
+
+function textColorOf(raw: RawAnnotation): string | null {
+  const found = raw.defaultAppearanceData?.fontColor;
+  if (!found) return null;
+  const values = Array.from(found as ArrayLike<number>);
+  if (values.length < 3) return null;
+  return `#${channel(values[0]!)}${channel(values[1]!)}${channel(values[2]!)}`;
+}
+
+function fontSizeIn(raw: RawAnnotation): number | null {
+  const size = raw.defaultAppearanceData?.fontSize;
+  return typeof size === 'number' && size > 0 ? size : null;
 }
 
 export function annotationFrom(raw: RawAnnotation, page: number): Annotation | null {
@@ -192,11 +207,13 @@ export function annotationFrom(raw: RawAnnotation, page: number): Annotation | n
       ? Math.min(1, Math.max(0, raw.opacity))
       : 1;
 
+  const size = kind === 'freetext' ? fontSizeIn(raw) : null;
+
   return {
     id: newAnnotationId(),
     page,
     kind,
-    color: colorOf(raw.color),
+    color: (kind === 'freetext' ? textColorOf(raw) : null) ?? colorOf(raw.color),
     opacity,
     contents: textOf(raw.contentsObj),
     author: textOf(raw.titleObj),
@@ -206,6 +223,7 @@ export function annotationFrom(raw: RawAnnotation, page: number): Annotation | n
     ...(quads.length > 0 ? { quads } : {}),
     ...(ink.length > 0 ? { ink } : {}),
     ...(rect ? { rect } : {}),
+    ...(size !== null ? { fontSize: size } : {}),
   };
 }
 

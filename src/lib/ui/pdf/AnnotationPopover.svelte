@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import type { Annotation } from '$lib/pdf/annotations/model';
+  import { fontSizeOf } from '$lib/pdf/annotations/freetext';
   import { canEdit } from '$lib/pdf/annotations/transform';
   import { PALETTE } from '$lib/pdf/annotations/palette';
 
@@ -16,6 +17,8 @@
   const { annotation, x, y, onchange, ondelete, onclose }: Props = $props();
 
   let node = $state<HTMLElement | null>(null);
+  let field = $state<HTMLTextAreaElement | null>(null);
+  const writing = $derived(annotation.kind === 'freetext');
   let left = $state(0);
   let top = $state(0);
 
@@ -37,6 +40,15 @@
   function setContents(value: string): void {
     if (value !== annotation.contents) onchange({ ...annotation, contents: value });
   }
+
+  function setSize(value: number): void {
+    const size = Math.min(96, Math.max(4, Math.round(value)));
+    if (size !== fontSizeOf(annotation)) onchange({ ...annotation, fontSize: size });
+  }
+
+  $effect(() => {
+    if (writing) field?.focus();
+  });
 </script>
 
 <div
@@ -65,12 +77,27 @@
     </div>
 
     <textarea
+      bind:this={field}
       class="note"
-      rows="2"
-      placeholder={t('pdf.notePlaceholder')}
+      rows={writing ? 3 : 2}
+      placeholder={writing ? t('pdf.textHint') : t('pdf.notePlaceholder')}
       value={annotation.contents}
       oninput={(event) => setContents(event.currentTarget.value)}
     ></textarea>
+
+    {#if writing}
+      <label class="size">
+        <span>{t('pdf.textSize')}</span>
+        <input
+          type="number"
+          min="4"
+          max="96"
+          step="1"
+          value={fontSizeOf(annotation)}
+          oninput={(event) => setSize(Number(event.currentTarget.value))}
+        />
+      </label>
+    {/if}
   {/if}
 
   <div class="row">
@@ -125,6 +152,25 @@
 
   .note:focus {
     border-color: var(--accent);
+  }
+
+  .size {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    color: var(--text-muted);
+  }
+
+  .size input {
+    width: 64px;
+    height: 24px;
+    padding: 0 6px;
+    background: var(--bg-inset);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    color: var(--text);
+    outline: none;
   }
 
   .row {

@@ -10,6 +10,7 @@ import {
   rectNumbers,
   SHAPE_WIDTH,
 } from './appearance';
+import { freeTextStream, fontSizeOf, measureHelvetica, type Measure } from './freetext';
 import { annotationKey, usesQuads, type Annotation, type AnnotationKind } from './model';
 
 export type PdfLiteral =
@@ -31,6 +32,7 @@ const SUBTYPES: Record<AnnotationKind, string> = {
   rect: 'Square',
   ellipse: 'Circle',
   stamp: 'Stamp',
+  freetext: 'FreeText',
 };
 
 export class PdfWriteError extends Error {
@@ -85,15 +87,27 @@ function refKey(objectNumber: number, generation: number): string {
 
 type PdfLib = typeof import('pdf-lib');
 
+export interface TextFont {
+  ref: PDFRef;
+  name: string;
+  measure: Measure;
+}
+
 export function annotationDict(
   lib: PdfLib,
   document: PDFDocument,
   page: PDFPage,
   annotation: Annotation,
   images: Map<string, PDFRef> = new Map(),
+  font: TextFont | null = null,
 ): PDFRef | null {
   const bounds = appearanceBounds(annotation);
-  const content = appearanceStream(annotation);
+  const content =
+    annotation.kind === 'freetext'
+      ? font
+        ? freeTextStream(annotation, font.measure, font.name)
+        : ''
+      : appearanceStream(annotation);
   if (!bounds || content.length === 0) return null;
 
   const context = document.context;
@@ -105,6 +119,10 @@ export function annotationDict(
     const embedded = images.get(annotation.id);
     if (!embedded) return null;
     (resources as { XObject?: PdfLiteral }).XObject = { ReaderImg: embedded };
+  }
+
+  if (annotation.kind === 'freetext' && font) {
+    (resources as { Font?: PdfLiteral }).Font = { [font.name]: font.ref };
   }
 
   const appearance = context.register(
@@ -142,6 +160,14 @@ export function annotationDict(
   if (annotation.kind === 'note') {
     dictionary.Name = 'Comment';
     dictionary.Open = false;
+  }
+  if (annotation.kind === 'freetext' && font) {
+    const [r, g, b] = colorNumbers(annotation.color);
+    dictionary.DA = lib.PDFString.of(
+      `${r} ${g} ${b} rg /${font.name} ${fontSizeOf(annotation)} Tf`,
+    );
+    dictionary.Q = 0;
+    delete dictionary.C;
   }
 
   return context.register(context.obj(dictionary));
@@ -191,6 +217,16 @@ async function embedImages(
   return images;
 }
 
+async function embedTextFont(document: PDFDocument): Promise<TextFont | null> {
+  try {
+    const lib = await import('pdf-lib');
+    const font = await document.embedFont(lib.StandardFonts.Helvetica);
+    return { ref: font.ref, name: 'ReaderF', measure: measureHelvetica };
+  } catch {
+    return null;
+  }
+}
+
 export async function applyAnnotations(
   document: PDFDocument,
   current: Annotation[],
@@ -225,11 +261,14 @@ export async function applyAnnotations(
 
   const wanted = toCreate(current, original);
   const images = await embedImages(document, wanted);
+  const font = wanted.some((annotation) => annotation.kind === 'freetext')
+    ? await embedTextFont(document)
+    : null;
 
   for (const annotation of wanted) {
     const page = pages[annotation.page - 1];
     if (!page) continue;
-    const ref = annotationDict(lib, document, page, annotation, images);
+    const ref = annotationDict(lib, document, page, annotation, images, font);
     if (!ref) continue;
 
     const annots = page.node.Annots();

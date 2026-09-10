@@ -1,6 +1,13 @@
 import type { PageSize } from '../document';
 import { INK_WIDTH, NOTE_SIZE, SHAPE_WIDTH } from './appearance';
-import { boundsOfPoints, quadPoints, strokeToScreen, toScreenRect } from './geometry';
+import { fontSizeOf, lineHeight, linesOf, measureHelvetica, textOrigin } from './freetext';
+import {
+  boundsOfPoints,
+  quadPoints,
+  strokeToScreen,
+  toScreenPoint,
+  toScreenRect,
+} from './geometry';
 import type { Annotation, Rect } from './model';
 import { polygonsOf } from './shapes';
 import { matrixText, screenMatrixOf } from './stamp';
@@ -12,6 +19,18 @@ export interface Ellipse {
   ry: number;
 }
 
+export interface PaintedLine {
+  x: number;
+  y: number;
+  text: string;
+}
+
+export interface PaintedText {
+  lines: PaintedLine[];
+  size: number;
+  angle: number;
+}
+
 export interface Painted {
   rects: Rect[];
   quads: string[];
@@ -19,6 +38,7 @@ export interface Painted {
   polylines: string[];
   ellipse: Ellipse | null;
   note: Rect | null;
+  text: PaintedText | null;
   strokeWidth: number;
   box: Rect | null;
 }
@@ -49,6 +69,35 @@ function polylinesOf(
         .map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`)
         .join(' '),
     );
+}
+
+function paintedText(
+  annotation: Annotation,
+  size: PageSize,
+  scale: number,
+  rotation: number,
+): PaintedText | null {
+  const rect = annotation.rect;
+  if (annotation.kind !== 'freetext' || !rect) return null;
+
+  const fontSize = fontSizeOf(annotation);
+  const leading = lineHeight(fontSize);
+  const origin = textOrigin(rect, fontSize);
+  const lines = linesOf(annotation, measureHelvetica);
+
+  return {
+    lines: lines.map((text, index) => {
+      const point = toScreenPoint(
+        { x: origin.x, y: origin.y - leading * index },
+        size,
+        scale,
+        rotation,
+      );
+      return { x: point.x, y: point.y, text };
+    }),
+    size: fontSize * scale,
+    angle: ((size.rotation + rotation) % 360 + 360) % 360,
+  };
 }
 
 export function paintBox(
@@ -123,6 +172,7 @@ export function paintAnnotation(
         }
       : null,
     note: annotation.kind === 'note' ? box : null,
+    text: paintedText(annotation, size, scale, rotation),
     strokeWidth: (annotation.kind === 'ink' ? INK_WIDTH : SHAPE_WIDTH) * scale,
     box,
   };
