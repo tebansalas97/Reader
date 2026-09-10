@@ -1,3 +1,4 @@
+import { codesOfWide } from './cmap';
 import { decodeString, type Token } from './tokens';
 
 export type Matrix = [number, number, number, number, number, number];
@@ -22,6 +23,7 @@ export function translation(x: number, y: number): Matrix {
 export interface FontMetrics {
   widthOf(code: number): number;
   measurable: boolean;
+  wide?: boolean;
 }
 
 export type FontLookup = (name: string) => FontMetrics | null;
@@ -80,6 +82,12 @@ function numbersBefore(tokens: Token[], at: number, count: number): number[] {
   return values.length === count ? values : [];
 }
 
+function singleCodes(bytes: string): number[] {
+  const codes: number[] = [];
+  for (let index = 0; index < bytes.length; index += 1) codes.push(bytes.charCodeAt(index));
+  return codes;
+}
+
 export function advanceOf(
   bytes: string,
   metrics: FontMetrics | null,
@@ -90,10 +98,10 @@ export function advanceOf(
 ): number {
   if (!metrics) return 0;
   let total = 0;
-  for (const char of bytes) {
-    const code = char.charCodeAt(0);
+  const codes = metrics.wide === true ? codesOfWide(bytes) : singleCodes(bytes);
+  for (const code of codes) {
     total += (metrics.widthOf(code) / 1000) * size + charSpacing;
-    if (code === 32) total += wordSpacing;
+    if (code === 32 && metrics.wide !== true) total += wordSpacing;
   }
   return total * horizontal;
 }

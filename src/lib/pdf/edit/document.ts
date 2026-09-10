@@ -1,6 +1,7 @@
 import type { PDFDocument, PDFPage } from 'pdf-lib';
 import { encodingNameOf, reverseTable, tableFor } from './encoding';
-import { buildReplacement, simpleFont, spliceSource, type EditableFont } from './replace';
+import { codeMapOf, parseWideWidths } from './cmap';
+import { buildReplacement, simpleFont, spliceSource, wideFont, type EditableFont } from './replace';
 import { findRuns, originOf, type FontMetrics, type TextRun } from './runs';
 import { tokenize, type Token } from './tokens';
 
@@ -118,6 +119,57 @@ function contentStreams(lib: PdfLib, page: PDFPage): unknown[] {
   return [page.node.context.lookup(page.node.get(lib.PDFName.of('Contents')))];
 }
 
+function streamText(lib: PdfLib, stream: unknown): string {
+  try {
+    if (stream instanceof lib.PDFRawStream) {
+      return latin1(lib.decodePDFRawStream(stream).decode());
+    }
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function numbersOrLists(lib: PdfLib, array: import('pdf-lib').PDFArray): Array<number | number[]> {
+  const entries: Array<number | number[]> = [];
+  for (let index = 0; index < array.size(); index += 1) {
+    const entry = array.lookup(index);
+    if (entry instanceof lib.PDFNumber) {
+      entries.push(entry.asNumber());
+      continue;
+    }
+    if (entry instanceof lib.PDFArray) {
+      const list: number[] = [];
+      for (let inner = 0; inner < entry.size(); inner += 1) {
+        const value = entry.lookupMaybe(inner, lib.PDFNumber)?.asNumber();
+        if (typeof value === 'number') list.push(value);
+      }
+      entries.push(list);
+      continue;
+    }
+    break;
+  }
+  return entries;
+}
+
+function compositeFont(lib: PdfLib, font: import('pdf-lib').PDFDict): EditableFont | null {
+  const encoding = font.lookupMaybe(lib.PDFName.of('Encoding'), lib.PDFName)?.asString() ?? '';
+  const identity = encoding.replace(/^\//, '') === 'Identity-H';
+
+  const descendants = font.lookupMaybe(lib.PDFName.of('DescendantFonts'), lib.PDFArray);
+  const descendant = descendants ? descendants.lookupMaybe(0, lib.PDFDict) : null;
+  const defaultWidth =
+    descendant?.lookupMaybe(lib.PDFName.of('DW'), lib.PDFNumber)?.asNumber() ?? 1000;
+  const widthArray = descendant?.lookupMaybe(lib.PDFName.of('W'), lib.PDFArray);
+  const widths = widthArray ? parseWideWidths(numbersOrLists(lib, widthArray)) : new Map();
+
+  const cmap = streamText(lib, font.lookup(lib.PDFName.of('ToUnicode')));
+  const codes = cmap === '' ? { toText: new Map(), toCode: new Map() } : codeMapOf(cmap);
+
+  const editable = identity && codes.toCode.size > 0;
+  return wideFont(widths, defaultWidth, codes.toText, codes.toCode, editable);
+}
+
 async function readFonts(lib: PdfLib, page: PDFPage): Promise<Map<string, EditableFont>> {
   const fonts = new Map<string, EditableFont>();
   const resources = page.node.Resources();
@@ -131,6 +183,12 @@ async function readFonts(lib: PdfLib, page: PDFPage): Promise<Map<string, Editab
 
     const subtype = font.lookupMaybe(lib.PDFName.of('Subtype'), lib.PDFName)?.asString() ?? '';
     const clean = subtype.replace(/^\//, '');
+
+    if (clean === 'Type0') {
+      const composite = compositeFont(lib, font);
+      if (composite) fonts.set(name, composite);
+      continue;
+    }
 
     const widths = new Map<number, number>();
     const first = font.lookupMaybe(lib.PDFName.of('FirstChar'), lib.PDFNumber)?.asNumber() ?? 0;
