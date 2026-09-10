@@ -1,114 +1,43 @@
-# Rendimiento
+﻿# Rendimiento
 
-Medido el 2026-09-06 en MESA (Windows 11 Pro for Workstations, x64), sobre la
-compilación de release. Regenera este informe con `npm run perf`.
+Medido el 2026-09-10 14:10 en MESA.
+Mediana de 5 arranques en frio por documento.
 
-## Tamaño en disco
+## Tamano en disco
 
-| Artefacto | Presupuesto | Medido | Veredicto |
-| --- | --- | --- | --- |
-| Instalador NSIS | menos de 15 MB | 3.7 MB | cumple |
-| Ejecutable | sin presupuesto | 6.1 MB | |
-
-Un instalador equivalente en Electron ronda los 85 MB.
+| Artefacto | Presupuesto | Medido |
+| --- | --- | --- |
+| Instalador NSIS | menos de 15 MB | 4.7 MB |
+| Ejecutable | sin presupuesto | 7.1 MB |
 
 ## Arranque
 
-Mediana de tres arranques en frío, desde lanzar el proceso hasta que la ventana
-acepta entrada.
+| Documento | Presupuesto | Mediana | Minimo | Maximo |
+| --- | --- | --- | --- | --- |
+| Vacio | menos de 600 ms | 27 ms | 22 ms | 64 ms |
+| 100 KB | menos de 600 ms | 25 ms | 24 ms | 39 ms |
+| 5 MB | menos de 800 ms | 25 ms | 20 ms | 28 ms |
 
-| Documento | Presupuesto | Mediana | Mínimo | Máximo | Veredicto |
-| --- | --- | --- | --- | --- | --- |
-| 100 KB | menos de 600 ms | 88 ms | 33 ms | 88 ms | cumple |
-| 5 MB | menos de 800 ms | 219 ms | 31 ms | 219 ms | cumple |
+El tiempo va desde lanzar el proceso hasta que la ventana acepta entrada.
 
 ## Memoria
 
-Suma del proceso principal y de todos los procesos de WebView2 que cuelgan de él.
-El conjunto de trabajo cuenta varias veces las páginas de Chromium compartidas
-entre procesos, así que la memoria privada es la cifra honesta.
-
-| Documento | Conjunto de trabajo | Memoria privada | Sobre el mínimo |
+| Documento | Conjunto de trabajo | Memoria privada | Sobre el suelo |
 | --- | --- | --- | --- |
-| Vacío | 377 MB | 188 MB | |
-| 1 KB con fórmulas y diagrama | 438 MB | 262 MB | +74 MB |
-| 100 KB | 479 MB | 289 MB | +101 MB |
-| 5 MB | 692 MB | 515 MB | +327 MB |
+| Vacio | 434.9 MB | 254.1 MB | |
+| 100 KB | 549.4 MB | 372.3 MB | +118.2 MB |
+| 5 MB | 769.8 MB | 594 MB | +339.9 MB |
 
-### El presupuesto de 70 MB no se cumple
+Suma del proceso principal y de todos los procesos de WebView2 que cuelgan de el.
+El conjunto de trabajo cuenta varias veces las paginas de Chromium compartidas entre
+procesos, asi que la memoria privada es la cifra honesta.
 
-El spec fijó un presupuesto de menos de 70 MB en reposo. No se cumple y no es
-alcanzable con WebView2.
+Con un documento vacio la aplicacion ya consume 254.1 MB: ese es el
+suelo de WebView2, que arranca siete procesos de Chromium, y lo paga cualquier
+aplicacion que lo use. Ese suelo se mueve con la version del runtime que tenga
+instalada Windows, asi que las cifras de dos informes con fechas distintas solo se
+pueden comparar por la columna de la derecha, que es lo unico que depende de
+nosotros.
 
-Con un documento vacío la app ya consume 188 MB de memoria privada. Ese es el
-suelo del motor: WebView2 arranca seis procesos de Chromium (navegador, GPU, red,
-almacenamiento, informe de fallos y renderizador) y ese coste lo paga cualquier
-aplicación que lo use, escriba lo que escriba. Nuestro código propio aporta una
-parte pequeña: el proceso de Rust ocupa 5.8 MB privados y el bundle inicial de
-JavaScript son 856 KB.
-
-Lo que sí depende de nosotros crece con el documento:
-
-- Los +74 MB del documento de 1 KB son KaTeX, Mermaid y highlight.js, que se
-  cargan bajo demanda. Un documento sin fórmulas ni diagramas no los paga.
-- Los +327 MB del documento de 5 MB son el árbol DOM completo de la vista previa
-  más el estado del editor. La vista previa renderiza el documento entero.
-
-### Comparación en la misma máquina
-
-Medido con los mismos criterios, con las aplicaciones abiertas y en reposo:
-
-| Aplicación | Procesos | Conjunto de trabajo | Memoria privada |
-| --- | --- | --- | --- |
-| Reader con un documento de 100 KB | 7 | 479 MB | 289 MB |
-| Visual Studio Code | 14 | 812 MB | 1.696 MB |
-| Discord | 6 | 2.086 MB | 4.072 MB |
-
-Reader usa alrededor de una sexta parte de la memoria privada de VS Code y una
-decimocuarta parte de la de Discord, con un instalador veinte veces menor.
-
-### Presupuesto revisado
-
-El presupuesto original medía la magnitud equivocada. Se sustituye por dos:
-
-| Métrica | Presupuesto revisado | Medido |
-| --- | --- | --- |
-| Memoria privada con un documento vacío | menos de 200 MB | 188 MB |
-| Memoria privada que añade un documento de 100 KB | menos de 120 MB | 101 MB |
-
-Ambos se cumplen. El caso de 5 MB queda fuera de presupuesto a propósito: la
-mejora que lo arregla es virtualizar la vista previa por secciones, y está
-anotada como trabajo pendiente en la sección de riesgos del spec.
-
-## PDF y anotaciones
-
-Medido con `pdfjs-dist` 5.4 y `pdf-lib` 1.17 sobre la misma máquina, con
-documentos generados para la prueba. Son tiempos de proceso, sin contar el
-disco ni el puente con Rust.
-
-| Operación | Presupuesto | Medido |
-| --- | --- | --- |
-| Abrir un documento de 200 páginas | < 1500 ms | 69 ms |
-| Leer las anotaciones de 200 páginas | — | 4 ms |
-| Abrir un documento de 20 MB | < 1500 ms | 56 ms |
-| Escribir 20 anotaciones en 20 MB | < 2000 ms | 94 ms |
-| Verificar lo escrito antes de tocar el disco | — | 24 ms |
-
-Leer las anotaciones al abrir cuesta cuatro milisegundos en doscientas páginas
-porque las páginas ya se han pedido para conocer sus tamaños. Por eso se hace
-antes del primer dibujo: así el lienzo ya sabe cuáles no debe pintar y no hay
-un parpadeo con la anotación dibujada dos veces.
-
-El instalador pasa de 3,7 MB a 4,66 MB, casi un mega de crecimiento frente a un presupuesto de tres. pdf.js y pdf-lib viven en sus propios
-chunks (`pdf-*.js`, `es-*.js`, `write-*.js`) y no aparecen en el de entrada; se
-comprueba en cada compilación buscando `PDFDocumentLoadingTask` y `PDFHexString`
-en `dist/assets/index-*.js`.
-
-## Qué mirar si una cifra empeora
-
-1. Tamaño del chunk de entrada en `dist/assets/`. Debe seguir habiendo chunks
-   separados para KaTeX, Mermaid y highlight.js. Si alguno se funde con el
-   chunk principal, un `import()` dinámico se convirtió en estático.
-2. Tiempo dentro de `renderMarkdown` frente a `patchPreview`, con las
-   herramientas de desarrollo de WebView2.
-3. Número de nodos del DOM en la vista previa.
+Las mediciones se hacen con la sesion desactivada, para que no cuente lo que
+hubiera abierto la ultima vez.

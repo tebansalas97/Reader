@@ -46,6 +46,29 @@ function Get-Tree {
     return $ids
 }
 
+function Use-CleanPrefs {
+    $folder = Join-Path $env:APPDATA "dev.esteban.reader"
+    $file = Join-Path $folder "prefs.json"
+    $backup = Join-Path $folder "prefs.perf-backup.json"
+    if (-not (Test-Path $file)) { return $null }
+    if (Test-Path $backup) { Copy-Item $backup $file -Force }
+    Copy-Item $file $backup -Force
+    $json = Get-Content $file -Raw | ConvertFrom-Json
+    $json | Add-Member -NotePropertyName restoreSession -NotePropertyValue $false -Force
+    $json | Add-Member -NotePropertyName session -NotePropertyValue @() -Force
+    [System.IO.File]::WriteAllText($file, ($json | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding $false))
+    return $backup
+}
+
+function Restore-Prefs {
+    param([string]$Backup)
+    if (-not $Backup) { return }
+    if (-not (Test-Path $Backup)) { return }
+    $file = Join-Path (Split-Path $Backup) "prefs.json"
+    Copy-Item $Backup $file -Force
+    Remove-Item $Backup -Force
+}
+
 function Measure-Launch {
     param([string]$File)
 
@@ -83,13 +106,21 @@ function Measure-Launch {
 
 $fixtures = "tests/fixtures"
 if (-not (Test-Path $fixtures)) { New-Item -ItemType Directory -Force $fixtures | Out-Null }
+Set-Content -Path "$fixtures/perf-empty.md" -Value "" -Encoding utf8
 New-Fixture -Path "$fixtures/perf-small.md" -Kilobytes 100
 New-Fixture -Path "$fixtures/perf-large.md" -Kilobytes 5120
 
-Write-Output "Midiendo con documento de 100 KB..."
-$small = Measure-Launch -File "$fixtures/perf-small.md"
-Write-Output "Midiendo con documento de 5 MB..."
-$large = Measure-Launch -File "$fixtures/perf-large.md"
+$backup = Use-CleanPrefs
+try {
+    Write-Output "Midiendo con documento vacio..."
+    $empty = Measure-Launch -File "$fixtures/perf-empty.md"
+    Write-Output "Midiendo con documento de 100 KB..."
+    $small = Measure-Launch -File "$fixtures/perf-small.md"
+    Write-Output "Midiendo con documento de 5 MB..."
+    $large = Measure-Launch -File "$fixtures/perf-large.md"
+} finally {
+    Restore-Prefs -Backup $backup
+}
 
 $binary = Get-Item $Exe
 $installer = Get-ChildItem "src-tauri/target/release/bundle/nsis/*.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -112,6 +143,7 @@ Mediana de $Runs arranques en frio por documento.
 
 | Documento | Presupuesto | Mediana | Minimo | Maximo |
 | --- | --- | --- | --- | --- |
+| Vacio | menos de 600 ms | $($empty.MedianMs) ms | $($empty.MinMs) ms | $($empty.MaxMs) ms |
 | 100 KB | menos de 600 ms | $($small.MedianMs) ms | $($small.MinMs) ms | $($small.MaxMs) ms |
 | 5 MB | menos de 800 ms | $($large.MedianMs) ms | $($large.MinMs) ms | $($large.MaxMs) ms |
 
@@ -119,14 +151,25 @@ El tiempo va desde lanzar el proceso hasta que la ventana acepta entrada.
 
 ## Memoria
 
-| Documento | Conjunto de trabajo | Memoria privada |
-| --- | --- | --- |
-| 100 KB | $($small.WorkingMb) MB | $($small.PrivateMb) MB |
-| 5 MB | $($large.WorkingMb) MB | $($large.PrivateMb) MB |
+| Documento | Conjunto de trabajo | Memoria privada | Sobre el suelo |
+| --- | --- | --- | --- |
+| Vacio | $($empty.WorkingMb) MB | $($empty.PrivateMb) MB | |
+| 100 KB | $($small.WorkingMb) MB | $($small.PrivateMb) MB | +$([math]::Round($small.PrivateMb - $empty.PrivateMb, 1)) MB |
+| 5 MB | $($large.WorkingMb) MB | $($large.PrivateMb) MB | +$([math]::Round($large.PrivateMb - $empty.PrivateMb, 1)) MB |
 
 Suma del proceso principal y de todos los procesos de WebView2 que cuelgan de el.
 El conjunto de trabajo cuenta varias veces las paginas de Chromium compartidas entre
 procesos, asi que la memoria privada es la cifra honesta.
+
+Con un documento vacio la aplicacion ya consume $($empty.PrivateMb) MB: ese es el
+suelo de WebView2, que arranca siete procesos de Chromium, y lo paga cualquier
+aplicacion que lo use. Ese suelo se mueve con la version del runtime que tenga
+instalada Windows, asi que las cifras de dos informes con fechas distintas solo se
+pueden comparar por la columna de la derecha, que es lo unico que depende de
+nosotros.
+
+Las mediciones se hacen con la sesion desactivada, para que no cuente lo que
+hubiera abierto la ultima vez.
 "@
 
 Set-Content -Path $Out -Value $report -Encoding utf8

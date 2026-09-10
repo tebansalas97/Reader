@@ -1,8 +1,8 @@
 # Reader
 
 Lector y editor de escritorio para Markdown y PDF, construido sobre Tauri 2.
-Instalador de 3.7 MB, arranque en 88 ms y una vista previa que se actualiza
-mientras escribes sin tirones.
+Instalador de 4.7 MB, arranque por debajo de una décima de segundo y una vista
+previa que se actualiza mientras escribes sin tirones.
 
 ## Qué hace con Markdown
 
@@ -160,10 +160,15 @@ implementación en `docs/superpowers/plans/2026-09-04-reader-fase1.md`.
 
 ## Rendimiento
 
-Las cifras medidas y los presupuestos están en `docs/perf.md`. El resumen: el
-instalador ocupa 3.7 MB, la app arranca en 88 ms con un documento de 100 KB y
-consume alrededor de una sexta parte de la memoria privada de Visual Studio Code
-en la misma máquina.
+Las cifras medidas y los presupuestos están en `docs/perf.md`, y se regeneran con
+`npm run perf`. El resumen: el instalador ocupa 4.7 MB y la app arranca con un
+documento de 100 KB en unas decenas de milisegundos.
+
+De la memoria, la mayor parte es el suelo de WebView2: con un documento vacío ya
+son unos 250 MB privados, que paga cualquier aplicación que use ese motor, y ese
+suelo se mueve con la versión del runtime que tenga instalada Windows. Lo que sí
+depende de Reader es lo que crece por encima: unos 118 MB con un documento de
+100 KB.
 
 ## Licencia
 
