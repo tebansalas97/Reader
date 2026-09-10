@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import type { Annotation } from '$lib/pdf/annotations/model';
+  import { canEdit } from '$lib/pdf/annotations/transform';
   import { PALETTE } from '$lib/pdf/annotations/palette';
 
   interface Props {
@@ -49,7 +50,8 @@
     if (event.key === 'Escape') onclose();
   }}
 >
-  <div class="colors">
+  {#if canEdit(annotation)}
+    <div class="colors">
     {#each PALETTE as color (color)}
       <button
         class="swatch"
@@ -58,17 +60,18 @@
         title={color}
         aria-label={color}
         onclick={() => setColor(color)}
-      ></button>
-    {/each}
-  </div>
+        ></button>
+      {/each}
+    </div>
 
-  <textarea
-    class="note"
-    rows="2"
-    placeholder={t('pdf.notePlaceholder')}
-    value={annotation.contents}
-    oninput={(event) => setContents(event.currentTarget.value)}
-  ></textarea>
+    <textarea
+      class="note"
+      rows="2"
+      placeholder={t('pdf.notePlaceholder')}
+      value={annotation.contents}
+      oninput={(event) => setContents(event.currentTarget.value)}
+    ></textarea>
+  {/if}
 
   <div class="row">
     <span class="kind">{t(`pdf.tool.${annotation.kind}`)}</span>

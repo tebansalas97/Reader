@@ -3,6 +3,7 @@ import { INK_WIDTH, NOTE_SIZE, SHAPE_WIDTH } from './appearance';
 import { boundsOfPoints, quadPoints, strokeToScreen, toScreenRect } from './geometry';
 import type { Annotation, Rect } from './model';
 import { polygonsOf } from './shapes';
+import { matrixText, screenMatrixOf } from './stamp';
 
 export interface Ellipse {
   cx: number;
@@ -14,6 +15,7 @@ export interface Ellipse {
 export interface Painted {
   rects: Rect[];
   quads: string[];
+  image: { href: string; transform: string } | null;
   polylines: string[];
   ellipse: Ellipse | null;
   note: Rect | null;
@@ -98,9 +100,19 @@ export function paintAnnotation(
       ? toScreenRect(annotation.rect, size, scale, rotation)
       : null;
 
+  const quad = annotation.quads?.[0];
+  const image =
+    annotation.kind === 'stamp' && annotation.image && quad
+      ? {
+          href: annotation.image,
+          transform: `matrix(${matrixText(screenMatrixOf(quad, size, scale, rotation))})`,
+        }
+      : null;
+
   return {
     rects: shape ? [shape] : [],
-    quads: screenQuads(annotation, size, scale, rotation),
+    quads: annotation.kind === 'stamp' ? [] : screenQuads(annotation, size, scale, rotation),
+    image,
     polylines: annotation.kind === 'ink' ? polylinesOf(annotation, size, scale, rotation) : [],
     ellipse: round
       ? {

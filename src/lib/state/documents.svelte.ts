@@ -267,6 +267,12 @@ class DocumentsStore {
     if (doc) doc.rotation = rotation;
   }
 
+  refreshPdfSource(id: string, assetUrl: string): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    doc.assetUrl = `${assetUrl}${assetUrl.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  }
+
   loadFields(id: string, fields: FormField[]): void {
     const doc = this.pdfById(id);
     if (!doc) return;

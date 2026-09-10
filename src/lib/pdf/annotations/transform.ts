@@ -1,13 +1,29 @@
-import { boundsOf, type Annotation, type AnnotationKind, type Point, type Quad, type Rect } from './model';
+import { boundsOf, type Annotation, type Point, type Quad, type Rect } from './model';
 
 export const MIN_SIZE = 4;
 
-export function canResize(kind: AnnotationKind): boolean {
-  return kind !== 'note';
+export function isOwnStamp(annotation: Annotation): boolean {
+  return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
 }
 
-export function canRotate(kind: AnnotationKind): boolean {
-  return kind === 'highlight' || kind === 'underline' || kind === 'strikeout' || kind === 'ink';
+export function canEdit(annotation: Annotation): boolean {
+  return isOwnStamp(annotation);
+}
+
+export function canResize(annotation: Annotation): boolean {
+  return annotation.kind !== 'note' && isOwnStamp(annotation);
+}
+
+export function canRotate(annotation: Annotation): boolean {
+  const kind = annotation.kind;
+  if (!isOwnStamp(annotation)) return false;
+  return (
+    kind === 'highlight' ||
+    kind === 'underline' ||
+    kind === 'strikeout' ||
+    kind === 'ink' ||
+    kind === 'stamp'
+  );
 }
 
 type Move = (point: Point) => Point;
@@ -50,12 +66,12 @@ function mapAnnotation(annotation: Annotation, move: Move): Annotation {
 }
 
 export function movedBy(annotation: Annotation, dx: number, dy: number): Annotation {
-  if (dx === 0 && dy === 0) return annotation;
+  if (dx === 0 && dy === 0 || !canEdit(annotation)) return annotation;
   return mapAnnotation(annotation, (point) => ({ x: point.x + dx, y: point.y + dy }));
 }
 
 export function scaledInto(annotation: Annotation, from: Rect, to: Rect): Annotation {
-  if (!canResize(annotation.kind)) return annotation;
+  if (!canResize(annotation)) return annotation;
   if (from.width <= 0 || from.height <= 0) return annotation;
 
   const scaleX = to.width / from.width;
@@ -71,7 +87,7 @@ export function rotatedAround(
   centre: Point,
   radians: number,
 ): Annotation {
-  if (!canRotate(annotation.kind)) return annotation;
+  if (!canRotate(annotation)) return annotation;
   const cos = Math.cos(radians);
   const sin = Math.sin(radians);
   return mapAnnotation(annotation, (point) => {

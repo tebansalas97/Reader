@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   annotationKey,
+  digestOf,
   boundsOf,
   newAnnotationId,
   replaceAnnotation,
@@ -176,5 +177,19 @@ describe('withoutAnnotation and replaceAnnotation', () => {
     const next = replaceAnnotation(list, make({ id: '2', contents: 'nueva' }));
     expect(next.map((a) => a.id)).toEqual(['1', '2']);
     expect(next[1]?.contents).toBe('nueva');
+  });
+});
+
+describe('digestOf', () => {
+  it('gives the same digest for the same picture', () => {
+    expect(digestOf('data:image/png;base64,AAAA')).toBe(digestOf('data:image/png;base64,AAAA'));
+  });
+
+  it('gives a different one for a different picture', () => {
+    expect(digestOf('uno')).not.toBe(digestOf('dos'));
+  });
+
+  it('tells apart two pictures of the same length', () => {
+    expect(digestOf('abcd')).not.toBe(digestOf('abce'));
   });
 });

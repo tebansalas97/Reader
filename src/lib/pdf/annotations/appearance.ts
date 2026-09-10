@@ -1,5 +1,6 @@
 import { boundsOf, type Annotation, type Point, type Rect } from './model';
 import { polygonsOf } from './shapes';
+import { matrixText, pageMatrixOf } from './stamp';
 
 export const INK_WIDTH = 2;
 export const SHAPE_WIDTH = 1.5;
@@ -51,6 +52,7 @@ export function appearanceBounds(annotation: Annotation): Rect | null {
   const bounds = boundsOf(annotation);
   if (!bounds) return null;
   if (annotation.kind === 'ink') return padded(bounds, INK_WIDTH);
+  if (annotation.kind === 'stamp') return bounds;
   if (annotation.kind === 'rect' || annotation.kind === 'ellipse') {
     return padded(bounds, SHAPE_WIDTH);
   }
@@ -188,8 +190,16 @@ function noteStream(annotation: Annotation): string {
   ].join('\n');
 }
 
+function stampStream(annotation: Annotation): string {
+  const quad = annotation.quads?.[0];
+  if (!quad || !annotation.image) return '';
+  return ['q', `${matrixText(pageMatrixOf(quad))} cm`, '/ReaderImg Do', 'Q'].join('\n');
+}
+
 export function appearanceStream(annotation: Annotation): string {
   switch (annotation.kind) {
+    case 'stamp':
+      return stampStream(annotation);
     case 'highlight':
       return quadStream(annotation, true);
     case 'underline':

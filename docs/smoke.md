@@ -200,5 +200,15 @@ WebView. Recorre la lista con la compilación de release instalada, no con
     firma aparece ahí.
 59. La firma se puede mover, estirar y girar como cualquier dibujo, y se guarda
     dentro del PDF.
-60. Cierra la app y vuelve a abrirla: tu firma sigue guardada y el botón la
-    vuelve a ofrecer sin tener que dibujarla otra vez.
+60. Cierra la app y vuelve a abrirla: tu firma sigue en el catálogo y el botón
+    la vuelve a ofrecer sin tener que dibujarla otra vez.
+61. En el catálogo, escribe tu nombre y guárdalo: aparece como una firma con
+    letra manuscrita, lista para colocar.
+62. Importa un PNG. Se guarda en el catálogo con el nombre del archivo, que se
+    puede cambiar ahí mismo.
+63. Coloca el PNG en el documento. Se puede mover, estirar por las esquinas y
+    girar con el tirador redondo, igual que un dibujo.
+64. Guarda y vuelve a abrir. La imagen sigue en su sitio, y también se ve en
+    Edge. Ahí ya no se puede mover: pasa a ser parte del archivo. Sí se puede
+    seleccionar y borrar.
+65. Guarda dos veces seguidas: la imagen no se duplica.

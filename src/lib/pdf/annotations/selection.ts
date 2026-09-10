@@ -26,6 +26,7 @@ export interface Draft {
   quads?: Quad[];
   ink?: Point[][];
   rect?: Rect;
+  image?: string;
 }
 
 export function opacityFor(kind: AnnotationKind): number {
@@ -50,6 +51,7 @@ export function createAnnotation(draft: Draft): Annotation | null {
     ...(draft.quads ? { quads: draft.quads } : {}),
     ...(draft.ink ? { ink: draft.ink } : {}),
     ...(draft.rect ? { rect: draft.rect } : {}),
+    ...(draft.image ? { image: draft.image } : {}),
   };
 }
 

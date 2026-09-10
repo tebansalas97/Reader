@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import type { Annotation, Point } from '$lib/pdf/annotations/model';
+  import type { Annotation } from '$lib/pdf/annotations/model';
   import { paintBox } from '$lib/pdf/annotations/paint';
   import { quadsFromRects, type RectLike } from '$lib/pdf/annotations/quads';
   import {
@@ -25,6 +25,7 @@
   } from '$lib/pdf/zoom';
   import type { PageEdit } from '$lib/pdf/pages';
   import { documents, type PdfDocument } from '$lib/state/documents.svelte';
+  import type { StampItem } from '$lib/state/stamps.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationPopover from './AnnotationPopover.svelte';
   import PdfPage from './PdfPage.svelte';
@@ -41,7 +42,7 @@
     color?: string;
     author?: string;
     selectedId?: string | null;
-    signature?: Point[][];
+    stamp?: StampItem | null;
     oncreate?: (annotations: Annotation[]) => void;
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
@@ -60,7 +61,7 @@
     color = '#ffd400',
     author = '',
     selectedId = null,
-    signature = [],
+    stamp = null,
     oncreate,
     onselect,
     onchange,
@@ -152,7 +153,7 @@
           return;
         }
         opened.hideFromCanvas([
-          ...found.map((annotation) => annotation.ref ?? ''),
+          ...found.filter(repaintable).map((annotation) => annotation.ref ?? ''),
           ...forms.map((field) => field.id),
         ]);
         onannotations?.(found);
@@ -356,6 +357,10 @@
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  function repaintable(annotation: Annotation): boolean {
+    return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
+  }
+
   function pageIndexOfSource(source: number): number {
     return plan.findIndex((entry) => entry.source === source);
   }
@@ -451,7 +456,7 @@
           {color}
           {author}
           {selectedId}
-          {signature}
+          {stamp}
           oncreate={(annotation) => oncreate?.([annotation])}
           onselect={(id) => onselect?.(id)}
           onchange={(annotation) => onchange?.(annotation)}

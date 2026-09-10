@@ -18,6 +18,7 @@ const KIND_BY_TYPE: Record<number, AnnotationKind> = {
   9: 'highlight',
   10: 'underline',
   12: 'strikeout',
+  13: 'stamp',
   15: 'ink',
 };
 
@@ -156,6 +157,23 @@ export function annotationFrom(raw: RawAnnotation, page: number): Annotation | n
   if (!ref) return null;
 
   const rect = rectOf(raw.rect);
+  if (kind === 'stamp') {
+    if (!rect) return null;
+    return {
+      id: newAnnotationId(),
+      page,
+      kind,
+      color: colorOf(raw.color),
+      opacity: 1,
+      contents: textOf(raw.contentsObj),
+      author: textOf(raw.titleObj),
+      createdMs: parsePdfDate(raw.creationDate) || parsePdfDate(raw.modificationDate),
+      origin: 'file',
+      ref,
+      quads: [rectToQuad(rect)],
+    };
+  }
+
   const quads = usesQuads(kind)
     ? (() => {
         const read = quadsOf(raw.quadPoints);

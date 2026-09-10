@@ -2,9 +2,11 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { makeAnnotatedPdf, makePdf } from '../../../test/pdf-fixtures';
+import { STAMP_PNG } from '../../../test/stamp-image';
 import { openPdfDocument, type PdfHandle } from '../document';
 import { loadPdfjs } from '../load';
 import { rectToQuad } from './geometry';
+import { stampQuad } from './stamp';
 import { annotationKey, type Annotation, type AnnotationKind } from './model';
 import { readAnnotations } from './read';
 import { PdfWriteError, staleRefs, toCreate, writeAnnotations } from './write';
@@ -184,6 +186,61 @@ describe('writeAnnotations', () => {
       annotation('ellipse', { rect: { x: 10, y: 10, width: 100, height: 50 } }),
     ]);
     expect(read?.kind).toBe('ellipse');
+  });
+
+  it('writes an image stamp with the picture inside the file', async () => {
+    const stamp = annotation('stamp', {
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+      image: STAMP_PNG,
+    });
+    const written = await writeAnnotations(await makePdf([{ text: 'a' }]), [stamp], []);
+    const handle = await reopen(written);
+    const raw = (await (await handle.page(1)).getAnnotations({ intent: 'display' })) as Array<{
+      annotationType?: number;
+      hasAppearance?: boolean;
+      rect?: number[];
+    }>;
+    expect(raw[0]?.annotationType).toBe(13);
+    expect(raw[0]?.hasAppearance).toBe(true);
+    expect(raw[0]?.rect?.[0]).toBeCloseTo(100, 1);
+  });
+
+  it('leaves out a stamp with no picture', async () => {
+    const stamp = annotation('stamp', {
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+    });
+    const written = await writeAnnotations(await makePdf([{ text: 'a' }]), [stamp], []);
+    const raw = (await (await (await reopen(written)).page(1)).getAnnotations({
+      intent: 'display',
+    })) as unknown[];
+    expect(raw).toHaveLength(0);
+  });
+
+  it('does not write a stamp of the file again, and does not lose it', async () => {
+    const stamp = annotation('stamp', {
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+      image: STAMP_PNG,
+    });
+    const first = await writeAnnotations(await makePdf([{ text: 'a' }]), [stamp], []);
+    const inFile = await readAnnotations(await reopen(first));
+    expect(inFile).toHaveLength(1);
+    expect(inFile[0]?.kind).toBe('stamp');
+    expect(inFile[0]?.image).toBeUndefined();
+
+    const again = await writeAnnotations(first, inFile, inFile);
+    const after = await readAnnotations(await reopen(again));
+    expect(after).toHaveLength(1);
+  });
+
+  it('removes a stamp of the file when it is deleted', async () => {
+    const stamp = annotation('stamp', {
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+      image: STAMP_PNG,
+    });
+    const first = await writeAnnotations(await makePdf([{ text: 'a' }]), [stamp], []);
+    const inFile = await readAnnotations(await reopen(first));
+    const emptied = await writeAnnotations(first, [], inFile);
+    expect(await readAnnotations(await reopen(emptied))).toEqual([]);
   });
 
   it('writes it on the page it belongs to', async () => {

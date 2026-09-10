@@ -67,6 +67,14 @@ export async function writeBytesRaw(path: string, bytes: Uint8Array): Promise<nu
   }
 }
 
+export function getStamps<T>(): Promise<T> {
+  return call<T>('get_stamps');
+}
+
+export function setStamps(stamps: unknown): Promise<void> {
+  return call<void>('set_stamps', { stamps });
+}
+
 export function exists(path: string): Promise<boolean> {
   return call<boolean>('exists', { path });
 }

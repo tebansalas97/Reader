@@ -37,13 +37,15 @@
   } from '$lib/state/documents.svelte';
   import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
   import { recent } from '$lib/state/recent.svelte';
+  import { newStampId, stamps } from '$lib/state/stamps.svelte';
   import { toasts } from '$lib/state/toasts.svelte';
   import { ui } from '$lib/state/ui.svelte';
   import { registerShortcuts } from '$lib/shortcuts';
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
+  import { bytesToDataUrl, looksLikePng, shrinkPng } from '$lib/pdf/annotations/png';
   import { readAnnotations } from '$lib/pdf/annotations/read';
-  import { decodeSignature, encodeSignature } from '$lib/pdf/annotations/signature';
+
   import {
     openPdfDocument,
     PdfOpenError,
@@ -67,7 +69,7 @@
   import Editor from '$lib/ui/Editor.svelte';
   import PdfToolbar from '$lib/ui/pdf/PdfToolbar.svelte';
   import PrintSheet from '$lib/ui/pdf/PrintSheet.svelte';
-  import SignaturePad from '$lib/ui/pdf/SignaturePad.svelte';
+  import StampLibrary from '$lib/ui/pdf/StampLibrary.svelte';
   import PdfView from '$lib/ui/pdf/PdfView.svelte';
   import Preview from '$lib/ui/Preview.svelte';
   import Settings from '$lib/ui/Settings.svelte';
@@ -247,7 +249,16 @@
       documents.loadAnnotations(doc.id, fresh);
       documents.markPdfSaved(doc.id, modifiedMs);
       ui.selectedAnnotation = null;
-      pdfHandle?.hideFromCanvas(fresh.map((annotation) => annotation.ref ?? ''));
+
+      if (current.some((annotation) => annotation.kind === 'stamp')) {
+        documents.refreshPdfSource(doc.id, convertFileSrc(destination));
+      } else {
+        pdfHandle?.hideFromCanvas(
+          fresh
+            .filter((annotation) => annotation.kind !== 'stamp')
+            .map((annotation) => annotation.ref ?? ''),
+        );
+      }
       toasts.push(t('pdf.saved'));
       return 'saved';
     } catch (error) {
@@ -444,6 +455,37 @@
       reportError('error.saveFailed', error);
     } finally {
       saving = false;
+    }
+  }
+
+  async function importStampFlow(): Promise<void> {
+    const path = await openDialog({
+      multiple: false,
+      filters: [{ name: 'PNG', extensions: ['png'] }],
+    }).catch(() => null);
+    if (typeof path !== 'string') return;
+
+    try {
+      const bytes = await readBytesRaw(path);
+      if (!looksLikePng(bytes)) {
+        toasts.error(t('pdf.stampOnlyPng'));
+        return;
+      }
+      const shrunk = await shrinkPng(bytesToDataUrl(bytes), 600);
+      if (!shrunk) {
+        toasts.error(t('pdf.stampFailed'));
+        return;
+      }
+      stamps.add({
+        id: newStampId(),
+        name: basename(path).replace(/\.png$/i, '').slice(0, 40),
+        kind: 'image',
+        strokes: '',
+        image: shrunk.image,
+        ratio: shrunk.ratio,
+      });
+    } catch (error) {
+      reportError('pdf.stampFailed', error);
     }
   }
 
@@ -716,6 +758,7 @@
       ui.showToolbar = prefs.current.showToolbar;
       ui.sidebar = prefs.current.sidebarPanel;
       loadPersonal(prefs.current.personalDictionary);
+      await stamps.load().catch(() => undefined);
       await recent.load();
       if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder, false);
 
@@ -926,7 +969,7 @@
               color={prefs.current.annotationColor}
               author={prefs.current.annotationAuthor}
               selectedId={ui.selectedAnnotation}
-              signature={decodeSignature(prefs.current.signature)}
+              stamp={stamps.byId(stamps.active)}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
               onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}
@@ -1037,11 +1080,11 @@
 {/if}
 
 {#if ui.signatureOpen}
-  <SignaturePad
-    strokes={decodeSignature(prefs.current.signature)}
+  <StampLibrary
+    onimport={() => void importStampFlow()}
     onclose={() => (ui.signatureOpen = false)}
-    onuse={(strokes) => {
-      prefs.update({ signature: encodeSignature(strokes) });
+    onplace={(item) => {
+      stamps.active = item.id;
       ui.signatureOpen = false;
       ui.annotationTool = 'signature';
       ui.selectedAnnotation = null;

@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PDFPageProxy } from 'pdfjs-dist';
-  import type { Annotation, Point } from '$lib/pdf/annotations/model';
+  import type { Annotation } from '$lib/pdf/annotations/model';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
   import {
@@ -11,6 +11,7 @@
     type TextPiece,
   } from '$lib/pdf/text-layer';
   import type { FieldValues, FormField } from '$lib/pdf/forms/model';
+  import type { StampItem } from '$lib/state/stamps.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
   import FormLayer from './FormLayer.svelte';
@@ -29,7 +30,7 @@
     color?: string;
     author?: string;
     selectedId?: string | null;
-    signature?: Point[][];
+    stamp?: StampItem | null;
     oncreate?: (annotation: Annotation) => void;
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
@@ -52,7 +53,7 @@
     color = '#ffd400',
     author = '',
     selectedId = null,
-    signature = [],
+    stamp = null,
     oncreate,
     onselect,
     onchange,
@@ -162,7 +163,7 @@
       {color}
       {author}
       {selectedId}
-      {signature}
+      {stamp}
       oncreate={(annotation) => oncreate?.(annotation)}
       onselect={(id) => onselect?.(id)}
       onchange={(annotation) => onchange?.(annotation)}

@@ -5,7 +5,8 @@ export type AnnotationKind =
   | 'ink'
   | 'note'
   | 'rect'
-  | 'ellipse';
+  | 'ellipse'
+  | 'stamp';
 
 export interface Point {
   x: number;
@@ -42,15 +43,40 @@ export interface Annotation {
   quads?: Quad[];
   ink?: Point[][];
   rect?: Rect;
+  image?: string;
   origin: 'reader' | 'file';
   ref?: string;
 }
 
 export const QUAD_KINDS: AnnotationKind[] = ['highlight', 'underline', 'strikeout'];
+export const IMAGE_KINDS: AnnotationKind[] = ['stamp'];
 export const RECT_KINDS: AnnotationKind[] = ['note', 'rect', 'ellipse'];
 
 export function usesQuads(kind: AnnotationKind): boolean {
-  return QUAD_KINDS.includes(kind);
+  return QUAD_KINDS.includes(kind) || IMAGE_KINDS.includes(kind);
+}
+
+export function usesImage(kind: AnnotationKind): boolean {
+  return IMAGE_KINDS.includes(kind);
+}
+
+const digests = new Map<string, string>();
+const MAX_DIGESTS = 64;
+
+export function digestOf(value: string): string {
+  const known = digests.get(value);
+  if (known !== undefined) return known;
+
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const digest = `${value.length}:${(hash >>> 0).toString(36)}`;
+
+  if (digests.size >= MAX_DIGESTS) digests.clear();
+  digests.set(value, digest);
+  return digest;
 }
 
 export function usesRect(kind: AnnotationKind): boolean {
@@ -95,6 +121,7 @@ export function annotationKey(annotation: Annotation): string {
     (annotation.quads ?? []).map(quadKey).join(';'),
     annotation.rect ? rectKey(annotation.rect) : '',
     inkKey(annotation.ink ?? []),
+    annotation.image ? digestOf(annotation.image) : '',
   ].join('|');
 }
 

@@ -1,6 +1,8 @@
 import { render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { rectToQuad } from '$lib/pdf/annotations/geometry';
+import { stampQuad } from '$lib/pdf/annotations/stamp';
+import { STAMP_PNG } from '../../../test/stamp-image';
 import type { Annotation, AnnotationKind } from '$lib/pdf/annotations/model';
 import type { PageSize } from '$lib/pdf/document';
 import AnnotationLayer from './AnnotationLayer.svelte';
@@ -245,6 +247,82 @@ describe('AnnotationLayer', () => {
     svg.dispatchEvent(point('pointermove', 12, 12));
     svg.dispatchEvent(point('pointerup', 12, 12));
     expect(oncreate).not.toHaveBeenCalled();
+  });
+
+  it('paints an image stamp with the picture it carries', () => {
+    const stamp = annotation('stamp', {
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+      image: STAMP_PNG,
+    });
+    const { container } = render(AnnotationLayer, props({ annotations: [stamp] }));
+    const image = container.querySelector('.mark image') as SVGImageElement;
+    expect(image.getAttribute('href')).toBe(STAMP_PNG);
+    expect(image.getAttribute('transform')).toContain('matrix(180 0 0 90 100 510)');
+  });
+
+  it('places an image from the catalogue where it is clicked', () => {
+    const oncreate = vi.fn();
+    const item = {
+      id: 's1',
+      name: 'sello',
+      kind: 'image' as const,
+      strokes: '',
+      image: STAMP_PNG,
+      ratio: 0.5,
+    };
+    const { container } = render(
+      AnnotationLayer,
+      props({ tool: 'signature', stamp: item, oncreate }),
+    );
+    container.querySelector('svg')!.dispatchEvent(point('pointerdown', 40, 100));
+
+    const made = oncreate.mock.calls[0]![0] as Annotation;
+    expect(made.kind).toBe('stamp');
+    expect(made.image).toBe(STAMP_PNG);
+    expect(made.quads?.[0]?.x1).toBe(40);
+    expect(made.quads?.[0]?.y3).toBe(700 - 90);
+  });
+
+  it('places a drawn signature as a drawing', () => {
+    const oncreate = vi.fn();
+    const item = {
+      id: 's2',
+      name: 'firma',
+      kind: 'draw' as const,
+      strokes: '[[[0,0],[1,1]]]',
+      image: '',
+      ratio: 0.5,
+    };
+    const { container } = render(
+      AnnotationLayer,
+      props({ tool: 'signature', stamp: item, oncreate }),
+    );
+    container.querySelector('svg')!.dispatchEvent(point('pointerdown', 40, 100));
+
+    const made = oncreate.mock.calls[0]![0] as Annotation;
+    expect(made.kind).toBe('ink');
+    expect(made.ink?.[0]).toHaveLength(2);
+  });
+
+  it('places nothing when the catalogue has nothing chosen', () => {
+    const oncreate = vi.fn();
+    const { container } = render(AnnotationLayer, props({ tool: 'signature', oncreate }));
+    container.querySelector('svg')!.dispatchEvent(point('pointerdown', 40, 100));
+    expect(oncreate).not.toHaveBeenCalled();
+  });
+
+  it('offers to turn and to stretch an image stamp', () => {
+    const stamp = annotation('stamp', {
+      id: 'st1',
+      quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+      image: STAMP_PNG,
+    });
+    const { container } = render(
+      AnnotationLayer,
+      props({ annotations: [stamp], selectedId: 'st1' }),
+    );
+    expect(container.querySelectorAll('.frame rect.handle')).toHaveLength(4);
+    expect(container.querySelector('.frame circle.turn')).not.toBeNull();
   });
 
   it('drops a note where it was clicked', () => {

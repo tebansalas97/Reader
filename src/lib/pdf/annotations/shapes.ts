@@ -50,6 +50,7 @@ export function polygonsOf(annotation: Annotation): Point[][] {
   const quads = (annotation.quads ?? []).filter((quad) => quadHeight(quad) > 0);
   if (quads.length === 0) return [];
 
+  if (annotation.kind === 'stamp') return [];
   if (annotation.kind === 'highlight') return quads.map((quad) => stripOf(quad, 0, 1));
   if (annotation.kind === 'underline' || annotation.kind === 'strikeout') {
     const start = annotation.kind === 'underline' ? UNDERLINE_POSITION : STRIKEOUT_POSITION;

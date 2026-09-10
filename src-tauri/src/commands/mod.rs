@@ -6,6 +6,7 @@ pub mod prefs;
 pub mod recent;
 pub mod search;
 pub mod shell;
+pub mod stamps;
 pub mod store;
 pub mod watcher;
 

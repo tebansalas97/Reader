@@ -30,6 +30,7 @@ const SUBTYPES: Record<AnnotationKind, string> = {
   note: 'Text',
   rect: 'Square',
   ellipse: 'Circle',
+  stamp: 'Stamp',
 };
 
 export class PdfWriteError extends Error {
@@ -52,14 +53,22 @@ export function staleRefs(current: Annotation[], original: Annotation[]): Set<st
   for (const annotation of original) {
     if (!annotation.ref) continue;
     const still = alive.get(annotation.ref);
-    if (!still || annotationKey(still) !== annotationKey(annotation)) stale.add(annotation.ref);
+    if (!still) {
+      stale.add(annotation.ref);
+      continue;
+    }
+    if (annotation.kind === 'stamp' && typeof annotation.image !== 'string') continue;
+    if (annotationKey(still) !== annotationKey(annotation)) stale.add(annotation.ref);
   }
   return stale;
 }
 
 export function toCreate(current: Annotation[], original: Annotation[]): Annotation[] {
   const stale = staleRefs(current, original);
-  return current.filter((annotation) => !annotation.ref || stale.has(annotation.ref));
+  return current.filter((annotation) => {
+    if (annotation.kind === 'stamp' && typeof annotation.image !== 'string') return false;
+    return !annotation.ref || stale.has(annotation.ref);
+  });
 }
 
 function rounded(values: number[]): number[] {
@@ -81,15 +90,22 @@ export function annotationDict(
   document: PDFDocument,
   page: PDFPage,
   annotation: Annotation,
+  images: Map<string, PDFRef> = new Map(),
 ): PDFRef | null {
   const bounds = appearanceBounds(annotation);
   const content = appearanceStream(annotation);
   if (!bounds || content.length === 0) return null;
 
   const context = document.context;
-  const resources = needsMultiply(annotation)
+  const resources: PdfLiteral = needsMultiply(annotation)
     ? { ExtGState: { GSMul: { Type: 'ExtGState', BM: 'Multiply' } } }
     : {};
+
+  if (annotation.kind === 'stamp') {
+    const embedded = images.get(annotation.id);
+    if (!embedded) return null;
+    (resources as { XObject?: PdfLiteral }).XObject = { ReaderImg: embedded };
+  }
 
   const appearance = context.register(
     context.flateStream(content, {
@@ -117,7 +133,8 @@ export function annotationDict(
     AP: { N: appearance },
   };
 
-  if (usesQuads(annotation.kind)) dictionary.QuadPoints = rounded(quadNumbers(annotation));
+  if (annotation.kind === 'stamp') dictionary.Name = 'ReaderImage';
+  else if (usesQuads(annotation.kind)) dictionary.QuadPoints = rounded(quadNumbers(annotation));
   if (annotation.kind === 'ink') dictionary.InkList = inkNumbers(annotation).map(rounded);
   if (annotation.kind === 'rect' || annotation.kind === 'ellipse') {
     dictionary.BS = { W: SHAPE_WIDTH, S: 'S' };
@@ -157,6 +174,23 @@ export async function saveWritten(document: PDFDocument): Promise<Uint8Array> {
   }
 }
 
+async function embedImages(
+  document: PDFDocument,
+  annotations: Annotation[],
+): Promise<Map<string, PDFRef>> {
+  const images = new Map<string, PDFRef>();
+  for (const annotation of annotations) {
+    if (annotation.kind !== 'stamp' || !annotation.image) continue;
+    try {
+      const embedded = await document.embedPng(annotation.image);
+      images.set(annotation.id, embedded.ref);
+    } catch {
+      continue;
+    }
+  }
+  return images;
+}
+
 export async function applyAnnotations(
   document: PDFDocument,
   current: Annotation[],
@@ -189,10 +223,13 @@ export async function applyAnnotations(
     if (dropped) page.node.set(lib.PDFName.of('Annots'), context.obj(kept));
   }
 
-  for (const annotation of toCreate(current, original)) {
+  const wanted = toCreate(current, original);
+  const images = await embedImages(document, wanted);
+
+  for (const annotation of wanted) {
     const page = pages[annotation.page - 1];
     if (!page) continue;
-    const ref = annotationDict(lib, document, page, annotation);
+    const ref = annotationDict(lib, document, page, annotation, images);
     if (!ref) continue;
 
     const annots = page.node.Annots();

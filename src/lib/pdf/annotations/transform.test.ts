@@ -4,6 +4,7 @@ import { boundsOf, type Annotation, type AnnotationKind } from './model';
 import {
   angleBetween,
   boundsFrom,
+  canEdit,
   canResize,
   canRotate,
   centreOf,
@@ -43,26 +44,44 @@ const INK = annotation('ink', {
 
 const BOX = annotation('rect', { rect: { x: 10, y: 10, width: 100, height: 50 } });
 
-describe('what each kind allows', () => {
+describe('what each annotation allows', () => {
   it('lets a shape be resized', () => {
-    expect(canResize('rect')).toBe(true);
+    expect(canResize(BOX)).toBe(true);
   });
 
   it('keeps the note icon at its size', () => {
-    expect(canResize('note')).toBe(false);
+    expect(canResize(annotation('note'))).toBe(false);
   });
 
   it('lets a highlight be turned, because its quads can be', () => {
-    expect(canRotate('highlight')).toBe(true);
+    expect(canRotate(HIGHLIGHT)).toBe(true);
   });
 
   it('lets a drawing be turned', () => {
-    expect(canRotate('ink')).toBe(true);
+    expect(canRotate(INK)).toBe(true);
   });
 
   it('does not turn a rectangle, which a PDF stores upright', () => {
-    expect(canRotate('rect')).toBe(false);
-    expect(canRotate('ellipse')).toBe(false);
+    expect(canRotate(BOX)).toBe(false);
+    expect(canRotate(annotation('ellipse', { rect: { x: 0, y: 0, width: 1, height: 1 } }))).toBe(
+      false,
+    );
+  });
+
+  it('lets an image of ours be moved, stretched and turned', () => {
+    const stamp = annotation('stamp', { quads: HIGHLIGHT.quads, image: 'data:image/png;base64,AA' });
+    expect(canEdit(stamp)).toBe(true);
+    expect(canResize(stamp)).toBe(true);
+    expect(canRotate(stamp)).toBe(true);
+  });
+
+  it('leaves alone an image that was already in the file', () => {
+    const stamp = annotation('stamp', { quads: HIGHLIGHT.quads, origin: 'file', ref: '9R' });
+    expect(canEdit(stamp)).toBe(false);
+    expect(canResize(stamp)).toBe(false);
+    expect(canRotate(stamp)).toBe(false);
+    expect(movedBy(stamp, 10, 10)).toBe(stamp);
+    expect(scaledInto(stamp, boundsOf(stamp)!, { x: 0, y: 0, width: 9, height: 9 })).toBe(stamp);
   });
 });
 

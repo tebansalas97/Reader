@@ -372,6 +372,22 @@ incrustada, que es lo que hace que el formulario relleno se vea en cualquier
 visor y no solo en el que lo escribió. Los botones de acción no se tocan: Reader
 no ejecuta el JavaScript de un PDF, que es un vector de ataque conocido.
 
+El catálogo guarda firmas y sellos en su propio archivo, aparte de las
+preferencias, porque puede llevar imágenes. Cada entrada tiene nombre y es de
+uno de dos tipos: dibujo o imagen. Un nombre escrito se convierte en imagen al
+guardarlo, dibujándolo con letra manuscrita.
+
+Un dibujo se coloca como anotación de tinta. Una imagen se coloca como
+anotación `/Stamp`, con su geometría en cuatro esquinas: por eso se mueve, se
+estira y se gira con lo mismo que el resto, y por eso puede quedar torcida sin
+dejar de ser válida en el archivo.
+
+Un sello que Reader acaba de escribir se sigue viendo porque el visor recarga el
+archivo tras guardarlo. A partir de ahí es parte del PDF y ya no se puede mover:
+pdf.js no devuelve la imagen que hay dentro de una anotación, así que Reader no
+puede volver a dibujarla. Sí se puede seleccionar y borrar, y no se reescribe ni
+se duplica al guardar de nuevo.
+
 La firma es un dibujo, no un certificado. Se dibuja una vez en un panel, se
 guarda normalizada en las preferencias, y al pulsar en el documento se coloca
 como una anotación de tinta con el ancho de una firma. Por eso se puede mover,

@@ -16,15 +16,12 @@
     dragRect,
     simplify,
   } from '$lib/pdf/annotations/selection';
-  import {
-    placedStrokes,
-    signatureRatio,
-    signatureRect,
-    SIGNATURE_WIDTH,
-  } from '$lib/pdf/annotations/signature';
+  import { decodeSignature, placedStrokes, signatureRect } from '$lib/pdf/annotations/signature';
+  import { stampQuad, stampRect, STAMP_WIDTH } from '$lib/pdf/annotations/stamp';
   import {
     angleBetween,
     boundsFrom,
+    canEdit,
     canResize,
     canRotate,
     centreOf,
@@ -34,6 +31,7 @@
   } from '$lib/pdf/annotations/transform';
   import type { PageSize } from '$lib/pdf/document';
   import { rotatedSize } from '$lib/pdf/render';
+  import type { StampItem } from '$lib/state/stamps.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
 
   interface Props {
@@ -46,7 +44,7 @@
     color: string;
     author: string;
     selectedId: string | null;
-    signature?: Point[][];
+    stamp?: StampItem | null;
     oncreate: (annotation: Annotation) => void;
     onselect: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
@@ -62,7 +60,7 @@
     color,
     author,
     selectedId,
-    signature = [],
+    stamp = null,
     oncreate,
     onselect,
     onchange,
@@ -251,16 +249,34 @@
     }
 
     if (tool === 'signature') {
-      if (signature.length === 0) return;
+      if (!stamp) return;
       const anchor = toPdfPoint(point, size, scale, rotation);
-      const rect = signatureRect(anchor, SIGNATURE_WIDTH, signatureRatio(signature));
+
+      if (stamp.kind === 'image') {
+        const rect = stampRect(anchor, STAMP_WIDTH, stamp.ratio);
+        emit(
+          createAnnotation({
+            kind: 'stamp',
+            page,
+            color,
+            author,
+            quads: [stampQuad(rect)],
+            image: stamp.image,
+          }),
+        );
+        return;
+      }
+
+      const strokes = decodeSignature(stamp.strokes);
+      if (strokes.length === 0) return;
+      const rect = signatureRect(anchor, STAMP_WIDTH, stamp.ratio);
       emit(
         createAnnotation({
           kind: 'ink',
           page,
           color,
           author,
-          ink: placedStrokes(signature, rect),
+          ink: placedStrokes(strokes, rect),
         }),
       );
       return;
@@ -344,6 +360,17 @@
           stroke-width={entry.shape.strokeWidth}
         />
       {/each}
+      {#if entry.shape.image}
+        <image
+          href={entry.shape.image.href}
+          x="0"
+          y="0"
+          width="1"
+          height="1"
+          preserveAspectRatio="none"
+          transform={entry.shape.image.transform}
+        />
+      {/if}
       {#each entry.shape.quads as points, i (i)}
         <polygon {points} fill={entry.annotation.color} stroke="none" />
       {/each}
@@ -413,7 +440,7 @@
       aria-label={t(`pdf.tool.${entry.annotation.kind}`)}
       onpointerdown={(event) => {
         if (draws) return;
-        if (entry.annotation.id === selectedId) {
+        if (entry.annotation.id === selectedId && canEdit(entry.annotation)) {
           beginGesture(event, 'move');
           return;
         }
@@ -428,7 +455,7 @@
   {#if frame && selected}
     <g class="frame">
       <rect class="outline" x={frame.x} y={frame.y} width={frame.width} height={frame.height} />
-      {#if canRotate(selected.kind)}
+      {#if canRotate(selected)}
         <line
           class="stem"
           x1={frame.x + frame.width / 2}
@@ -449,7 +476,7 @@
           onpointerup={onPointerUp}
         />
       {/if}
-      {#if canResize(selected.kind)}
+      {#if canResize(selected)}
         {#each corners as corner (corner.key)}
           <rect
             class="handle"
