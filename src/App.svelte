@@ -453,9 +453,12 @@
     if (documentIsDirty(doc)) toasts.push(t('pdf.printUnsaved'));
     if (doc.pageCount > MANY_PAGES) toasts.push(t('pdf.printing', { pages: doc.pageCount }));
 
-    const refs = doc.annotations
-      .map((annotation) => annotation.ref)
-      .filter((ref): ref is string => typeof ref === 'string');
+    const refs = [
+      ...doc.annotations
+        .map((annotation) => annotation.ref)
+        .filter((ref): ref is string => typeof ref === 'string'),
+      ...doc.fields.map((field) => field.id),
+    ];
 
     printing = true;
     try {
