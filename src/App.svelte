@@ -72,7 +72,7 @@
   import { MANY_PAGES, printPlan, renderForPrint } from '$lib/pdf/print';
   import { rangeText } from '$lib/pdf/print-range';
   import PrintDialog from '$lib/ui/pdf/PrintDialog.svelte';
-  import { buildSavedPdfWithReport, extractPages } from '$lib/pdf/save';
+  import { buildSavedPdfWithReport, extractPages, insertPages } from '$lib/pdf/save';
   import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
   import DiagramViewer from '$lib/ui/DiagramViewer.svelte';
@@ -534,6 +534,42 @@
       await writeBytesRaw(target, written);
       await recent.load();
       toasts.push(t('pages.extracted', { n: sources.length, name: basename(target) }));
+    } catch (error) {
+      reportError('error.saveFailed', error);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function insertPdfFlow(at: number): Promise<void> {
+    const doc = activePdf;
+    if (!doc) return;
+    if (doc.path === null) {
+      toasts.error(t('error.needsPath'));
+      return;
+    }
+    if (documentIsDirty(doc) && (await savePdf(doc, undefined, true)) !== 'saved') return;
+
+    const chosen = await openDialog({ multiple: false, filters: PDF_FILTERS }).catch(() => null);
+    const source = typeof chosen === 'string' ? chosen : null;
+    if (!source) return;
+
+    const path = doc.path;
+    saving = true;
+    try {
+      const base = await readBytesRaw(path);
+      const extra = await readBytesRaw(source);
+      const merged = await insertPages(base, extra, at);
+      const check = await openPdfDocument(merged);
+      const pageCount = check.pageCount;
+      await check.destroy().catch(() => undefined);
+
+      const modifiedMs = await writeBytesRaw(path, merged);
+      documents.resetPdfPages(doc.id, pageCount, modifiedMs);
+      documents.refreshPdfSource(doc.id, convertFileSrc(path));
+      ui.selectedPages = [];
+      ui.selection = [];
+      toasts.push(t('pages.inserted', { n: pageCount - doc.pageCount, name: basename(source) }));
     } catch (error) {
       reportError('error.saveFailed', error);
     } finally {
@@ -1108,6 +1144,7 @@
                 documents.setPages(activePdf.id, turnPages(activePdf.pages, indices, quarters)),
               onpageremove: (indices) => askRemovePages(indices),
               onpageextract: (indices) => void extractFlow(indices),
+              onpageinsert: (at) => void insertPdfFlow(at),
               onsearchhit: (page, items) => {
                 documents.setPage(activePdf.id, positionOfSource(activePdf.pages, page) || page);
                 pdfHit = { page, items };

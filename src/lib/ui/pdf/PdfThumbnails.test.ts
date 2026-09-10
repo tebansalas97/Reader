@@ -39,6 +39,7 @@ function props(overrides: Record<string, unknown> = {}) {
     onturn: () => undefined,
     onremove: () => undefined,
     onextract: () => undefined,
+    oninsert: () => undefined,
     ...overrides,
   };
 }
@@ -149,5 +150,21 @@ describe('PdfThumbnails', () => {
     thumb.dispatchEvent(pointer('pointermove', 11, 11));
     thumb.dispatchEvent(pointer('pointerup', 11, 11));
     expect(onmove).not.toHaveBeenCalled();
+  });
+});
+
+describe('PdfThumbnails inserting another PDF', () => {
+  it('inserts at the end when nothing is chosen', () => {
+    const oninsert = vi.fn();
+    const { container } = render(PdfThumbnails, props({ oninsert }));
+    toolNamed(container, 'Insertar otro PDF aquí').click();
+    expect(oninsert).toHaveBeenCalledWith(4);
+  });
+
+  it('inserts after the last page chosen', () => {
+    const oninsert = vi.fn();
+    const { container } = render(PdfThumbnails, props({ selected: [0, 1], oninsert }));
+    toolNamed(container, 'Insertar otro PDF aquí').click();
+    expect(oninsert).toHaveBeenCalledWith(2);
   });
 });

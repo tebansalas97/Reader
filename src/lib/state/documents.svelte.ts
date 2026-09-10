@@ -412,6 +412,19 @@ class DocumentsStore {
     doc.externalChange = 'none';
   }
 
+  resetPdfPages(id: string, pageCount: number, modifiedMs: number): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    undo.forget(id);
+    doc.pageCount = pageCount;
+    doc.pages = initialPlan(pageCount);
+    doc.savedPages = initialPlan(pageCount);
+    doc.page = Math.min(Math.max(1, doc.page), Math.max(1, pageCount));
+    doc.edits = [];
+    doc.modifiedMs = modifiedMs;
+    doc.externalChange = 'none';
+  }
+
   async save(id: string): Promise<SaveResult> {
     const doc = this.markdownById(id);
     if (!doc) return 'unchanged';

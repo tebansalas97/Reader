@@ -11,7 +11,7 @@ import { loadPdfjs } from './load';
 import { valuesOf } from './forms/model';
 import { readFields } from './forms/read';
 import { initialPlan, movePages, removePages, turnPages, type PageEdit } from './pages';
-import { buildSavedPdf, extractPages } from './save';
+import { buildSavedPdf, extractPages, insertPages } from './save';
 import { extractPageText } from './search';
 
 const open: PdfHandle[] = [];
@@ -233,5 +233,50 @@ describe('extractPages', () => {
 
   it('complains when nothing can be extracted', async () => {
     await expect(extractPages(await three(), [99])).rejects.toBeInstanceOf(PdfWriteError);
+  });
+});
+
+describe('insertPages', () => {
+  it('puts the other document at the position asked for', async () => {
+    const other = await makePdf([{ text: 'NUEVA' }]);
+    const handle = await reopen(await insertPages(await three(), other, 1));
+    expect(await order(handle)).toEqual(['UNO', 'NUEVA', 'DOS', 'TRES']);
+  });
+
+  it('puts it at the front', async () => {
+    const other = await makePdf([{ text: 'NUEVA' }]);
+    const handle = await reopen(await insertPages(await three(), other, 0));
+    expect(await order(handle)).toEqual(['NUEVA', 'UNO', 'DOS', 'TRES']);
+  });
+
+  it('puts it at the end', async () => {
+    const other = await makePdf([{ text: 'NUEVA' }]);
+    const handle = await reopen(await insertPages(await three(), other, 3));
+    expect(await order(handle)).toEqual(['UNO', 'DOS', 'TRES', 'NUEVA']);
+  });
+
+  it('keeps the order of what it inserts', async () => {
+    const other = await makePdf([{ text: 'A' }, { text: 'B' }]);
+    const handle = await reopen(await insertPages(await three(), other, 1));
+    expect(await order(handle)).toEqual(['UNO', 'A', 'B', 'DOS', 'TRES']);
+  });
+
+  it('clamps a position beyond the document', async () => {
+    const other = await makePdf([{ text: 'NUEVA' }]);
+    const handle = await reopen(await insertPages(await three(), other, 99));
+    expect(await order(handle)).toEqual(['UNO', 'DOS', 'TRES', 'NUEVA']);
+  });
+
+  it('keeps the annotations that were already saved', async () => {
+    const bytes = await save(await three(), initialPlan(3), initialPlan(3), [mark(2)], []);
+    const other = await makePdf([{ text: 'NUEVA' }]);
+    const found = await readAnnotations(await reopen(await insertPages(bytes, other, 0)));
+    expect(found).toHaveLength(1);
+    expect(found[0]?.page).toBe(3);
+  });
+
+  it('complains when the other file is not a PDF', async () => {
+    const rubbish = new Uint8Array([1, 2, 3, 4]);
+    await expect(insertPages(await three(), rubbish, 0)).rejects.toBeInstanceOf(PdfWriteError);
   });
 });

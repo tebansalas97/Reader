@@ -15,6 +15,7 @@
     onturn: (indices: number[], quarters: 1 | -1) => void;
     onremove: (indices: number[]) => void;
     onextract: (indices: number[]) => void;
+    oninsert: (at: number) => void;
   }
 
   const {
@@ -25,6 +26,7 @@
     onselect,
     onselection,
     onmove,
+    oninsert,
     onturn,
     onremove,
     onextract,
@@ -217,6 +219,18 @@
       <path d="M9 2H4v12h8V5z" />
       <path d="M9 2v3h3" />
       <path d="M6.5 9.5h3M8 8v3" />
+    </svg>
+  </button>
+  <button
+    class="tool"
+    title={t('pages.insert')}
+    aria-label={t('pages.insert')}
+    onclick={() => oninsert(selected.length > 0 ? Math.max(...selected) + 1 : plan.length)}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M9 2H4v12h8V5z" />
+      <path d="M9 2v3h3" />
+      <path d="M2.5 9.5h4M4.5 7.5v4" />
     </svg>
   </button>
   <span class="count">{selected.length > 0 ? t('pages.selected', { n: selected.length }) : ''}</span>

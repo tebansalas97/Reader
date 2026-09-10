@@ -100,3 +100,22 @@ export async function extractPages(bytes: Uint8Array, sources: number[]): Promis
   for (const page of copied) into.addPage(page);
   return saveWritten(into);
 }
+
+export async function insertPages(
+  bytes: Uint8Array,
+  extra: Uint8Array,
+  at: number,
+): Promise<Uint8Array> {
+  const into = await loadForWriting(bytes);
+  const from = await loadForWriting(extra);
+  const count = from.getPageCount();
+  if (count === 0) throw new PdfWriteError('broken', 'el otro documento no tiene paginas');
+
+  const where = Math.max(0, Math.min(at, into.getPageCount()));
+  const copied = await into.copyPages(
+    from,
+    Array.from({ length: count }, (_, index) => index),
+  );
+  copied.forEach((page, index) => into.insertPage(where + index, page));
+  return saveWritten(into);
+}

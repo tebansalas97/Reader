@@ -42,6 +42,7 @@
       onpageturn: (indices: number[], quarters: 1 | -1) => void;
       onpageremove: (indices: number[]) => void;
       onpageextract: (indices: number[]) => void;
+      onpageinsert: (at: number) => void;
       onselectannotation: (id: string, page: number) => void;
       onsearchhit: (page: number, items: number[]) => void;
       ondeleteannotation: (id: string) => void;
@@ -147,6 +148,7 @@
         onturn={pdf.onpageturn}
         onremove={pdf.onpageremove}
         onextract={pdf.onpageextract}
+        oninsert={pdf.onpageinsert}
       />
     {:else if panel === 'marks' && pdf}
       <AnnotationsPanel
