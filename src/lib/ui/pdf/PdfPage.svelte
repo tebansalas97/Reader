@@ -40,6 +40,7 @@
     values?: FieldValues;
     onvalue?: (name: string, value: string) => void;
     edits?: TextEdit[];
+    flash?: number[];
     picking?: boolean;
     onpick?: (piece: TextPiece) => void;
     onunedit?: (id: string) => void;
@@ -67,6 +68,7 @@
     values = {},
     onvalue,
     edits = [],
+    flash = [],
     picking = false,
     onpick,
     onunedit,
@@ -79,6 +81,9 @@
   const spans: Array<HTMLElement | null> = [];
 
   const box = $derived(canvasSize(size, scale, rotation, globalThis.devicePixelRatio ?? 1));
+  const lit = $derived(
+    flash.length === 0 ? [] : pieces.filter((piece) => flash.includes(piece.item)),
+  );
 
   $effect(() => {
     const drawnPieces = pieces;
@@ -163,6 +168,18 @@
       {/each}
     </div>
   {/if}
+  {#if lit.length > 0}
+    <div class="flash">
+      {#each lit as piece, i (i)}
+        <span
+          style="left: {piece.left}px; top: {piece.top}px; width: {Math.max(
+            piece.width,
+            4,
+          )}px; height: {piece.height}px"
+        ></span>
+      {/each}
+    </div>
+  {/if}
   {#if live && edits.length > 0}
     <TextEditLayer {size} {scale} {rotation} {edits} onremove={(id) => onunedit?.(id)} />
   {/if}
@@ -241,6 +258,30 @@
 
   .text-layer span::selection {
     background: rgba(64, 120, 240, 0.35);
+  }
+
+  .flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .flash span {
+    position: absolute;
+    background: rgba(255, 196, 0, 0.45);
+    outline: 1px solid rgba(220, 150, 0, 0.9);
+    border-radius: 1px;
+    animation: fade 2.4s ease-out forwards;
+  }
+
+  @keyframes fade {
+    0%,
+    60% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
   }
 
   .placeholder {

@@ -13,6 +13,7 @@
   import SearchPanel from './SearchPanel.svelte';
   import AnnotationsPanel from './pdf/AnnotationsPanel.svelte';
   import PdfOutline from './pdf/PdfOutline.svelte';
+  import PdfSearch from './pdf/PdfSearch.svelte';
   import PdfThumbnails from './pdf/PdfThumbnails.svelte';
 
   interface Props {
@@ -42,6 +43,7 @@
       onpageremove: (indices: number[]) => void;
       onpageextract: (indices: number[]) => void;
       onselectannotation: (id: string, page: number) => void;
+      onsearchhit: (page: number, items: number[]) => void;
       ondeleteannotation: (id: string) => void;
     } | null;
   }
@@ -162,7 +164,11 @@
         <Outline items={outline} {activeIndex} onselect={onheading} />
       {/if}
     {:else if panel === 'search'}
-      <SearchPanel onopen={onsearchhit} {onopenfolder} />
+      {#if pdf}
+        <PdfSearch handle={pdf.handle} currentPage={pdf.page} onselect={pdf.onsearchhit} />
+      {:else}
+        <SearchPanel onopen={onsearchhit} {onopenfolder} />
+      {/if}
     {:else}
       <HistoryPanel
         path={activeDocument}

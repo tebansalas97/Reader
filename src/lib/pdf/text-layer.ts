@@ -10,6 +10,7 @@ export interface TextPiece {
   angle: number;
   originX: number;
   originY: number;
+  item: number;
 }
 
 interface RawItem {
@@ -28,7 +29,12 @@ function numbers(value: unknown): Matrix | null {
   return parsed as Matrix;
 }
 
-export function pieceFrom(item: RawItem, matrix: Matrix, scale: number): TextPiece | null {
+export function pieceFrom(
+  item: RawItem,
+  matrix: Matrix,
+  scale: number,
+  at = 0,
+): TextPiece | null {
   const text = typeof item.str === 'string' ? item.str : '';
   if (text.trim().length === 0) return null;
 
@@ -43,7 +49,17 @@ export function pieceFrom(item: RawItem, matrix: Matrix, scale: number): TextPie
   const left = angle === 0 ? placed[4] : placed[4] + height * Math.sin(angle);
   const top = angle === 0 ? placed[5] - height : placed[5] - height * Math.cos(angle);
 
-  return { text, left, top, width, height, angle, originX: transform[4], originY: transform[5] };
+  return {
+    text,
+    left,
+    top,
+    width,
+    height,
+    angle,
+    originX: transform[4],
+    originY: transform[5],
+    item: at,
+  };
 }
 
 export function piecesFrom(
@@ -54,8 +70,8 @@ export function piecesFrom(
 ): TextPiece[] {
   const matrix = viewportTransform(size, scale, rotation);
   const pieces: TextPiece[] = [];
-  for (const item of items) {
-    const piece = pieceFrom(item as RawItem, matrix, scale);
+  for (let index = 0; index < items.length; index += 1) {
+    const piece = pieceFrom(items[index] as RawItem, matrix, scale, index);
     if (piece) pieces.push(piece);
   }
   return pieces;

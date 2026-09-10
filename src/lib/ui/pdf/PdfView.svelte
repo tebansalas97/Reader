@@ -52,6 +52,7 @@
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
     ondelete?: (id: string) => void;
+    hit?: { page: number; items: number[] } | null;
     onedit?: (edit: TextEdit) => void;
     onunedit?: (id: string) => void;
   }
@@ -73,6 +74,7 @@
     onselect,
     onchange,
     ondelete,
+    hit = null,
     onedit,
     onunedit,
   }: Props = $props();
@@ -526,6 +528,7 @@
           {selectedId}
           {stamp}
           edits={edits.filter((entry) => entry.page === (plan[index]?.source ?? index + 1))}
+          flash={hit && hit.page === (plan[index]?.source ?? index + 1) ? hit.items : []}
           {picking}
           onpick={(piece) => {
             const element = scroller?.querySelector<HTMLElement>(

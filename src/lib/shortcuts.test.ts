@@ -82,3 +82,29 @@ describe('registerShortcuts', () => {
     expect(save).not.toHaveBeenCalled();
   });
 });
+
+describe('handlers that decline', () => {
+  it('lets the key through when the handler says no', () => {
+    const stop = registerShortcuts({ undo: () => false });
+    const event = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+    stop();
+  });
+
+  it('takes the key when the handler deals with it', () => {
+    const stop = registerShortcuts({ undo: () => true });
+    const event = new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    stop();
+  });
+
+  it('knows the three ways of asking for undo and redo', () => {
+    expect(matchShortcut(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true }))).toBe('undo');
+    expect(matchShortcut(new KeyboardEvent('keydown', { key: 'y', ctrlKey: true }))).toBe('redo');
+    expect(
+      matchShortcut(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, shiftKey: true })),
+    ).toBe('redo');
+  });
+});

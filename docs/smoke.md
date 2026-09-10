@@ -241,3 +241,20 @@ WebView. Recorre la lista con la compilación de release instalada, no con
 76. Prueba en un PDF hecho con Word o exportado desde el navegador. Si la
     fuente no se puede reescribir, lo dice al pulsar el fragmento en vez de
     dejarte escribir para nada.
+
+## Buscar y deshacer
+
+77. Con un PDF abierto, ve al panel de buscar. La caja dice «Buscar en el
+    documento», no en la carpeta. Escribe algo que esté en varias páginas.
+78. Salen los resultados agrupados por página con su contexto. Pulsa uno: el
+    visor salta a esa página y el hallazgo se resalta en amarillo un momento.
+79. Busca con acentos y sin ellos, en mayúsculas y en minúsculas: encuentra
+    igual.
+80. Cierra el PDF y abre un Markdown: el panel vuelve a buscar en la carpeta.
+81. Pon una anotación y pulsa `Ctrl+Z`: desaparece. `Ctrl+Y` la trae de vuelta.
+82. Borra una anotación y deshaz: vuelve tal cual estaba.
+83. Cambia el orden de las páginas y deshaz.
+84. Escribe un comentario largo en una anotación y deshaz una vez: se borra el
+    comentario entero, no letra a letra.
+85. En un Markdown, `Ctrl+Z` sigue deshaciendo en el editor de texto como
+    siempre.

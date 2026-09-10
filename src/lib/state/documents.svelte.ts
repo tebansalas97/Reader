@@ -16,6 +16,7 @@ import {
 } from '$lib/pdf/forms/model';
 import type { TextEdit } from '$lib/pdf/edit/document';
 import { initialPlan, planAfterSave, samePlan, type PageEdit } from '$lib/pdf/pages';
+import { undo, type PdfSnapshot } from './undo.svelte';
 
 export const LARGE_FILE_BYTES = 20 * 1024 * 1024;
 
@@ -278,6 +279,7 @@ class DocumentsStore {
   }
 
   addEdit(id: string, edit: TextEdit): void {
+    this.record(id, 'edit:add');
     const doc = this.pdfById(id);
     if (!doc) return;
     const others = doc.edits.filter(
@@ -287,6 +289,7 @@ class DocumentsStore {
   }
 
   removeEdit(id: string, editId: string): void {
+    this.record(id, 'edit:remove');
     const doc = this.pdfById(id);
     if (doc) doc.edits = doc.edits.filter((entry) => entry.id !== editId);
   }
@@ -305,12 +308,14 @@ class DocumentsStore {
   }
 
   setFieldValue(id: string, name: string, value: string): void {
+    this.record(id, `field:${name}`);
     const doc = this.pdfById(id);
     if (!doc) return;
     doc.fieldValues = withValue(doc.fieldValues, name, value);
   }
 
   setPages(id: string, pages: PageEdit[]): void {
+    this.record(id, 'pages');
     const doc = this.pdfById(id);
     if (!doc) return;
     doc.pages = pages;
@@ -329,17 +334,59 @@ class DocumentsStore {
     doc.savedAnnotations = annotations.map((a) => ({ ...a }));
   }
 
+  snapshot(id: string): PdfSnapshot | null {
+    const doc = this.pdfById(id);
+    if (!doc) return null;
+    return {
+      annotations: doc.annotations,
+      pages: doc.pages,
+      fieldValues: doc.fieldValues,
+      edits: doc.edits,
+    };
+  }
+
+  record(id: string, tag = ''): void {
+    const state = this.snapshot(id);
+    if (state) undo.record(id, tag, state);
+  }
+
+  private restore(id: string, state: PdfSnapshot | null): boolean {
+    const doc = this.pdfById(id);
+    if (!doc || !state) return false;
+    doc.annotations = state.annotations;
+    doc.pages = state.pages;
+    doc.fieldValues = state.fieldValues;
+    doc.edits = state.edits;
+    doc.page = Math.min(Math.max(1, doc.page), Math.max(1, state.pages.length));
+    return true;
+  }
+
+  undoPdf(id: string): boolean {
+    const current = this.snapshot(id);
+    if (!current) return false;
+    return this.restore(id, undo.undo(id, current));
+  }
+
+  redoPdf(id: string): boolean {
+    const current = this.snapshot(id);
+    if (!current) return false;
+    return this.restore(id, undo.redo(id, current));
+  }
+
   addAnnotation(id: string, annotation: Annotation): void {
+    this.record(id, 'annotation:add');
     const doc = this.pdfById(id);
     if (doc) doc.annotations = [...doc.annotations, annotation];
   }
 
   updateAnnotation(id: string, annotation: Annotation): void {
+    this.record(id, `annotation:${annotation.id}`);
     const doc = this.pdfById(id);
     if (doc) doc.annotations = replaceAnnotation(doc.annotations, annotation);
   }
 
   removeAnnotation(id: string, annotationId: string): void {
+    this.record(id, 'annotation:remove');
     const doc = this.pdfById(id);
     if (doc) doc.annotations = withoutAnnotation(doc.annotations, annotationId);
   }
@@ -400,6 +447,7 @@ class DocumentsStore {
   }
 
   close(id: string): void {
+    undo.forget(id);
     const index = this.list.findIndex((d) => d.id === id);
     if (index === -1) return;
     const doc = this.list[index]!;

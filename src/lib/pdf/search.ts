@@ -79,6 +79,32 @@ export function joinTextItems(items: unknown[]): string {
   return text;
 }
 
+export interface ItemRange {
+  item: number;
+  from: number;
+  to: number;
+}
+
+export function itemRanges(items: unknown[]): ItemRange[] {
+  const ranges: ItemRange[] = [];
+  let at = 0;
+  for (let index = 0; index < items.length; index += 1) {
+    const text = itemText(items[index]);
+    const from = at;
+    at += text.length;
+    if (hasEol(items[index])) at += 1;
+    if (text.length > 0) ranges.push({ item: index, from, to: at });
+  }
+  return ranges;
+}
+
+export function itemsForMatch(ranges: ItemRange[], index: number, length: number): number[] {
+  const end = index + Math.max(1, length);
+  return ranges
+    .filter((range) => range.from < end && range.to > index)
+    .map((range) => range.item);
+}
+
 export async function extractPageText(source: TextSource, page: number): Promise<string> {
   const proxy = await source.page(page);
   const content = await proxy.getTextContent();

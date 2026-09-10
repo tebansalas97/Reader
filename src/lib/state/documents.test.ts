@@ -335,6 +335,51 @@ describe('pdf documents', () => {
     expect(documents.pdfById(id)?.page).toBe(1);
   });
 
+  it('undoes the last annotation', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.addAnnotation(id, highlight(1, 'una'));
+    expect(documents.pdfById(id)?.annotations).toHaveLength(1);
+    expect(documents.undoPdf(id)).toBe(true);
+    expect(documents.pdfById(id)?.annotations).toHaveLength(0);
+  });
+
+  it('redoes what it just undid', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.addAnnotation(id, highlight(1, 'una'));
+    documents.undoPdf(id);
+    expect(documents.redoPdf(id)).toBe(true);
+    expect(documents.pdfById(id)?.annotations).toHaveLength(1);
+  });
+
+  it('brings back an annotation that was deleted', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.addAnnotation(id, highlight(1, 'una'));
+    const mark = documents.pdfById(id)!.annotations[0]!;
+    documents.removeAnnotation(id, mark.id);
+    documents.undoPdf(id);
+    expect(documents.pdfById(id)?.annotations[0]?.id).toBe(mark.id);
+  });
+
+  it('undoes a change of the page order', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    const doc = documents.pdfById(id)!;
+    documents.setPages(id, [doc.pages[2]!, doc.pages[0]!, doc.pages[1]!]);
+    documents.undoPdf(id);
+    expect(documents.pdfById(id)?.pages.map((p) => p.source)).toEqual([1, 2, 3]);
+  });
+
+  it('says no when there is nothing to undo', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    expect(documents.undoPdf(id)).toBe(false);
+  });
+
+  it('leaves the document clean again after undoing everything', () => {
+    const id = documents.openPdf('C:/d/a.pdf', info());
+    documents.addAnnotation(id, highlight(1, 'una'));
+    documents.undoPdf(id);
+    expect(documents.isDirty(id)).toBe(false);
+  });
+
   it('opens a pdf as its own kind of document', () => {
     const id = documents.openPdf('C:/d/a.pdf', info());
     expect(documents.byId(id)?.kind).toBe('pdf');

@@ -59,6 +59,7 @@
   import {
     annotationsOnLostPages,
     movePages,
+    positionOfSource,
     withoutLostPages,
     removePages,
     sourcesOf,
@@ -118,6 +119,7 @@
   let printImages = $state<string[]>([]);
   let printing = $state(false);
   let appVersion = $state('');
+  let pdfHit = $state<{ page: number; items: number[] } | null>(null);
   let pdfHandle = $state<PdfHandle | null>(null);
   let pdfOutline = $state<OutlineEntry[]>([]);
   let spellMenu = $state<{
@@ -720,6 +722,14 @@
       },
       settings: () => (ui.settingsOpen = true),
       about: () => (ui.aboutOpen = true),
+      undo: () => {
+        if (!activePdf) return false;
+        return documents.undoPdf(activePdf.id);
+      },
+      redo: () => {
+        if (!activePdf) return false;
+        return documents.redoPdf(activePdf.id);
+      },
       nextTab: () => cycleTab(1),
       prevTab: () => cycleTab(-1),
       exportHtml: () => void exportHtmlFlow(),
@@ -989,6 +999,10 @@
                 documents.setPages(activePdf.id, turnPages(activePdf.pages, indices, quarters)),
               onpageremove: (indices) => askRemovePages(indices),
               onpageextract: (indices) => void extractFlow(indices),
+              onsearchhit: (page, items) => {
+                documents.setPage(activePdf.id, positionOfSource(activePdf.pages, page) || page);
+                pdfHit = { page, items };
+              },
               onselectannotation: (id, page) => {
                 documents.setPage(activePdf.id, page);
                 ui.selectedAnnotation = id;
@@ -1035,6 +1049,7 @@
               author={prefs.current.annotationAuthor}
               selectedId={ui.selectedAnnotation}
               stamp={stamps.byId(stamps.active)}
+              hit={pdfHit}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
               onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}

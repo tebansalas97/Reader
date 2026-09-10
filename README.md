@@ -105,7 +105,8 @@ tocar la interfaz.
 | `Ctrl+Alt+P` | Exportar a PDF |
 | `Ctrl+P` | Imprimir |
 | `Ctrl+Shift+P` | Paleta de comandos |
-| `Ctrl+Shift+F` | Buscar en la carpeta |
+| `Ctrl+Shift+F` | Buscar en la carpeta, o dentro del PDF abierto |
+| `Ctrl+Z` / `Ctrl+Y` | Deshacer y rehacer en un PDF |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar, reducir o restaurar el tamano del texto |
 | `Ctrl+,` | Preferencias |
 

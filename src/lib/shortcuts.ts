@@ -20,6 +20,9 @@ const BINDINGS: Record<string, string> = {
   'ctrl+=': 'zoomIn',
   'ctrl+-': 'zoomOut',
   'ctrl+0': 'zoomReset',
+  'ctrl+z': 'undo',
+  'ctrl+y': 'redo',
+  'ctrl+shift+z': 'redo',
   f11: 'toggleZen',
   escape: 'exitZen',
 };
@@ -37,15 +40,17 @@ export function matchShortcut(event: KeyboardEvent): string | null {
   return BINDINGS[comboOf(event)] ?? null;
 }
 
-export function registerShortcuts(handlers: Record<string, () => void>): () => void {
+export type ShortcutHandler = () => void | boolean;
+
+export function registerShortcuts(handlers: Record<string, ShortcutHandler>): () => void {
   function onKeyDown(event: KeyboardEvent): void {
     const action = matchShortcut(event);
     if (action === null) return;
     const handler = handlers[action];
     if (!handler) return;
+    if (handler() === false) return;
     event.preventDefault();
     event.stopPropagation();
-    handler();
   }
   window.addEventListener('keydown', onKeyDown, true);
   return () => window.removeEventListener('keydown', onKeyDown, true);

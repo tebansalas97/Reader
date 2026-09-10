@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   excerpt,
+  itemRanges,
+  itemsForMatch,
   extractAllText,
   findInPages,
   fold,
@@ -168,5 +170,52 @@ describe('extractAllText', () => {
     const spy = vi.spyOn(from, 'page');
     await extractAllText(from, new Map([[1, 'cacheado']]));
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('itemRanges', () => {
+  function item(str: string, eol = false) {
+    return { str, hasEOL: eol };
+  }
+
+  it('says where each piece of text starts and ends', () => {
+    const ranges = itemRanges([item('hola '), item('mundo')]);
+    expect(ranges).toEqual([
+      { item: 0, from: 0, to: 5 },
+      { item: 1, from: 5, to: 10 },
+    ]);
+  });
+
+  it('counts the line break that pdf.js marks', () => {
+    const ranges = itemRanges([item('uno', true), item('dos')]);
+    expect(ranges[1]).toEqual({ item: 1, from: 4, to: 7 });
+  });
+
+  it('leaves out the pieces with no text', () => {
+    expect(itemRanges([item(''), item('hola')])).toHaveLength(1);
+  });
+});
+
+describe('itemsForMatch', () => {
+  const ranges = [
+    { item: 0, from: 0, to: 5 },
+    { item: 1, from: 5, to: 10 },
+    { item: 2, from: 10, to: 20 },
+  ];
+
+  it('finds the piece the match falls in', () => {
+    expect(itemsForMatch(ranges, 6, 3)).toEqual([1]);
+  });
+
+  it('finds every piece a long match crosses', () => {
+    expect(itemsForMatch(ranges, 3, 9)).toEqual([0, 1, 2]);
+  });
+
+  it('finds the piece of a match with no length', () => {
+    expect(itemsForMatch(ranges, 0, 0)).toEqual([0]);
+  });
+
+  it('finds nothing past the end', () => {
+    expect(itemsForMatch(ranges, 50, 2)).toEqual([]);
   });
 });
