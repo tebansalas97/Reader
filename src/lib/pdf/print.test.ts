@@ -37,6 +37,6 @@ describe('renderForPrint', () => {
       showOnCanvas: () => undefined,
       destroy: async () => undefined,
     };
-    expect(await renderForPrint(handle, 0)).toEqual([]);
+    expect(await renderForPrint(handle, 0, [{ source: 1, rotation: 0 }])).toEqual([]);
   });
 });

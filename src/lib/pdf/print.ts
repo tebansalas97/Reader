@@ -17,9 +17,24 @@ export interface PrintProgress {
   (done: number, total: number): void;
 }
 
+export interface PrintPage {
+  source: number;
+  rotation: number;
+}
+
+export function printPlan(
+  plan: readonly PrintPage[],
+  positions: readonly number[],
+): PrintPage[] {
+  return positions
+    .map((position) => plan[position - 1])
+    .filter((entry): entry is PrintPage => entry !== undefined);
+}
+
 export async function renderForPrint(
   handle: PdfHandle,
   rotation: number,
+  plan: readonly PrintPage[],
   onprogress?: PrintProgress,
 ): Promise<string[]> {
   const canvas = document.createElement('canvas');
@@ -27,11 +42,13 @@ export async function renderForPrint(
   if (!context) return [];
 
   const images: string[] = [];
-  for (let number = 1; number <= handle.pageCount; number += 1) {
-    const page = await handle.page(number);
-    const size = handle.pageSizes[number - 1];
-    const scale = size ? printScale(size, rotation) : 1;
-    const viewport = page.getViewport({ scale, rotation: (size?.rotation ?? 0) + rotation });
+  const total = plan.length;
+  for (const [index, entry] of plan.entries()) {
+    const page = await handle.page(entry.source);
+    const size = handle.pageSizes[entry.source - 1];
+    const turn = rotation + entry.rotation;
+    const scale = size ? printScale(size, turn) : 1;
+    const viewport = page.getViewport({ scale, rotation: (size?.rotation ?? 0) + turn });
 
     canvas.width = Math.max(1, Math.round(viewport.width));
     canvas.height = Math.max(1, Math.round(viewport.height));
@@ -41,7 +58,7 @@ export async function renderForPrint(
 
     await page.render({ canvas, canvasContext: context, viewport }).promise;
     images.push(canvas.toDataURL('image/jpeg', 0.9));
-    onprogress?.(number, handle.pageCount);
+    onprogress?.(index + 1, total);
   }
 
   canvas.width = 0;

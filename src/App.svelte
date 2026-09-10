@@ -69,7 +69,9 @@
     sourcesOf,
     turnPages,
   } from '$lib/pdf/pages';
-  import { MANY_PAGES, renderForPrint } from '$lib/pdf/print';
+  import { MANY_PAGES, printPlan, renderForPrint } from '$lib/pdf/print';
+  import { rangeText } from '$lib/pdf/print-range';
+  import PrintDialog from '$lib/ui/pdf/PrintDialog.svelte';
   import { buildSavedPdfWithReport, extractPages } from '$lib/pdf/save';
   import { nextZoomStep } from '$lib/pdf/render';
   import CommandPalette from '$lib/ui/CommandPalette.svelte';
@@ -123,6 +125,8 @@
   let printImages = $state<string[]>([]);
   let printing = $state(false);
   let appVersion = $state('');
+  let printAsking = $state(false);
+  let printRange = $state('');
   let sessionReady = $state(false);
   let pdfHit = $state<{ page: number; items: number[] } | null>(null);
   let pdfHandle = $state<PdfHandle | null>(null);
@@ -568,11 +572,11 @@
     }
   }
 
-  async function printPdfFlow(doc: PdfDocument): Promise<void> {
+  async function printPdfFlow(doc: PdfDocument, positions: number[]): Promise<void> {
     const handle = pdfHandle;
     if (!handle) return;
     if (documentIsDirty(doc)) toasts.push(t('pdf.printUnsaved'));
-    if (doc.pageCount > MANY_PAGES) toasts.push(t('pdf.printing', { pages: doc.pageCount }));
+    if (positions.length > MANY_PAGES) toasts.push(t('pdf.printing', { pages: positions.length }));
 
     const refs = [
       ...doc.annotations
@@ -584,7 +588,11 @@
     printing = true;
     try {
       handle.showOnCanvas(refs);
-      printImages = await renderForPrint(handle, doc.rotation);
+      printImages = await renderForPrint(
+        handle,
+        doc.rotation,
+        printPlan($state.snapshot(doc.pages) as PdfDocument['pages'], positions),
+      );
       handle.hideFromCanvas(refs);
       if (printImages.length === 0) {
         toasts.error(t('pdf.printFailed'));
@@ -653,7 +661,8 @@
 
   function printFlow(): void {
     if (activePdf) {
-      void printPdfFlow(activePdf);
+      printRange = ui.selectedPages.length > 0 ? rangeText(ui.selectedPages.map((i) => i + 1)) : '';
+      printAsking = true;
       return;
     }
     const previous = ui.viewMode;
@@ -1272,6 +1281,18 @@
       ui.annotationTool = 'signature';
       ui.selection = [];
     }}
+  />
+{/if}
+
+{#if printAsking && activePdf}
+  <PrintDialog
+    pageCount={activePdf.pages.length}
+    initial={printRange}
+    onprint={(positions) => {
+      printAsking = false;
+      if (activePdf) void printPdfFlow(activePdf, positions);
+    }}
+    oncancel={() => (printAsking = false)}
   />
 {/if}
 
