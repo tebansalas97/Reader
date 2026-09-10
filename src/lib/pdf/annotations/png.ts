@@ -1,3 +1,4 @@
+import type { Rect } from './model';
 import { fitInside, ratioOf } from './stamp';
 
 const SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -14,6 +15,32 @@ export function bytesToDataUrl(bytes: Uint8Array): string {
     binary += String.fromCharCode(...bytes.subarray(index, index + step));
   }
   return `data:image/png;base64,${btoa(binary)}`;
+}
+
+export function inkBounds(
+  data: ArrayLike<number>,
+  width: number,
+  height: number,
+  threshold = 8,
+): Rect | null {
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const alpha = data[(y * width + x) * 4 + 3] ?? 0;
+      if (alpha <= threshold) continue;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX < 0 || maxY < 0) return null;
+  return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
 }
 
 export interface ShrunkPng {

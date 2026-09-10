@@ -1,7 +1,9 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import type { Point } from '$lib/pdf/annotations/model';
+  import { inkBounds } from '$lib/pdf/annotations/png';
   import {
+    boxForRatio,
     decodeSignature,
     encodeSignature,
     normalisedStrokes,
@@ -28,6 +30,7 @@
   let current = $state<Point[] | null>(null);
   let board = $state<SVGSVGElement | null>(null);
   let typed = $state('');
+  let failed = $state('');
 
   const lines = $derived(
     [...drawn, ...(current ? [current] : [])].map((stroke) =>
@@ -83,44 +86,65 @@
     const text = typed.trim();
     if (text === '') return;
 
-    const canvas = document.createElement('canvas');
     const size = 96;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+    const pad = 10;
+    const wide = document.createElement('canvas');
+    const first = wide.getContext('2d');
+    if (!first) return;
 
-    context.font = `${size}px ${NAME_FONTS}`;
-    const width = Math.ceil(context.measureText(text).width) + 24;
-    const height = Math.ceil(size * 1.5);
-    canvas.width = width;
-    canvas.height = height;
+    first.font = `${size}px ${NAME_FONTS}`;
+    const measured = Math.ceil(first.measureText(text).width);
+    wide.width = Math.max(120, measured + size * 2);
+    wide.height = size * 2;
 
-    const paint = canvas.getContext('2d');
+    const paint = wide.getContext('2d');
     if (!paint) return;
-    paint.clearRect(0, 0, width, height);
+    paint.clearRect(0, 0, wide.width, wide.height);
     paint.font = `${size}px ${NAME_FONTS}`;
     paint.fillStyle = '#101010';
     paint.textBaseline = 'middle';
-    paint.fillText(text, 12, height / 2);
+    paint.fillText(text, size / 2, wide.height / 2);
+
+    let ink: ReturnType<typeof inkBounds> = null;
+    try {
+      const pixels = paint.getImageData(0, 0, wide.width, wide.height);
+      ink = inkBounds(pixels.data, wide.width, wide.height);
+    } catch {
+      ink = null;
+    }
+    if (!ink) {
+      failed = t('pdf.stampFailed');
+      return;
+    }
+
+    const cut = document.createElement('canvas');
+    cut.width = ink.width + pad * 2;
+    cut.height = ink.height + pad * 2;
+    const crop = cut.getContext('2d');
+    if (!crop) return;
+    crop.drawImage(wide, ink.x, ink.y, ink.width, ink.height, pad, pad, ink.width, ink.height);
 
     stamps.add({
       id: newStampId(),
       name: text,
       kind: 'image',
       strokes: '',
-      image: canvas.toDataURL('image/png'),
-      ratio: ratioOf(width, height),
+      image: cut.toDataURL('image/png'),
+      ratio: ratioOf(cut.width, cut.height),
     });
     typed = '';
+    failed = '';
     mode = 'list';
   }
 
   function preview(item: StampItem): string {
     if (item.kind === 'image') return '';
+    const box = boxForRatio(112, 52, item.ratio);
     const strokes = placedStrokes(decodeSignature(item.strokes), {
-      x: 4,
-      y: 44,
-      width: 112,
-      height: 36,
+      x: box.x + 4,
+      y: box.y + box.height + 4,
+      width: box.width,
+      height: box.height,
     });
     return strokes
       .map((stroke) => stroke.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
@@ -183,6 +207,7 @@
       }}
     />
     <div class="row">
+      {#if failed !== ''}<span class="failed">{failed}</span>{/if}
       <div class="grow"></div>
       <button class="text primary" disabled={typed.trim() === ''} onclick={keepTyped}>
         {t('pdf.stampKeep')}
@@ -429,5 +454,9 @@
     margin: 0;
     padding: 10px 2px;
     color: var(--text-faint);
+  }
+
+  .failed {
+    color: var(--danger);
   }
 </style>

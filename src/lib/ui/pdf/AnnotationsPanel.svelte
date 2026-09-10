@@ -24,6 +24,7 @@
     note: 'M3 3h10v7H7l-3 3v-3H3z',
     rect: 'M3 4h10v8H3z',
     ellipse: 'M8 4c3 0 5 1.8 5 4s-2 4-5 4-5-1.8-5-4 2-4 5-4z',
+    stamp: 'M3 4h10v8H3zM3 9l3-2.5L8.5 9l2-1.5L13 9.5',
   };
 
   let items = $state<Map<number, unknown[]>>(new Map());
@@ -41,6 +42,7 @@
     'strikeout',
     'note',
     'ink',
+    'stamp',
     'rect',
     'ellipse',
   ];

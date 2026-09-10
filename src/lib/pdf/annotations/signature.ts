@@ -24,16 +24,22 @@ export function normalisedStrokes(strokes: Point[][]): Point[][] {
   if (!bounds) return [];
   const width = bounds.width || 1;
   const height = bounds.height || 1;
-  const side = Math.max(width, height);
 
   return strokes
     .filter((stroke) => stroke.length > 0)
     .map((stroke) =>
       stroke.map((point) => ({
         x: Math.round(((point.x - bounds.x) / width) * 1000) / 1000,
-        y: Math.round(((point.y - bounds.y) / side) * 1000) / 1000,
+        y: Math.round(((point.y - bounds.y) / height) * 1000) / 1000,
       })),
     );
+}
+
+export function boxForRatio(width: number, height: number, ratio: number): Rect {
+  const tall = width * ratio;
+  if (tall <= height) return { x: 0, y: (height - tall) / 2, width, height: tall };
+  const wide = ratio > 0 ? height / ratio : width;
+  return { x: (width - wide) / 2, y: 0, width: wide, height };
 }
 
 export function signatureRatio(strokes: Point[][]): number {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   boundsOfStrokes,
+  boxForRatio,
   decodeSignature,
   encodeSignature,
   normalisedStrokes,
@@ -32,10 +33,17 @@ describe('boundsOfStrokes', () => {
 });
 
 describe('normalisedStrokes', () => {
-  it('brings the drawing into a box of side one', () => {
+  it('brings the drawing into a box of one by one', () => {
     const strokes = normalisedStrokes(DRAWN);
-    expect(strokes[0]![0]).toEqual({ x: 0, y: 0.375 });
-    expect(strokes[1]![1]).toEqual({ x: 1, y: 0.375 });
+    expect(strokes[0]![0]).toEqual({ x: 0, y: 1 });
+    expect(strokes[1]![1]).toEqual({ x: 1, y: 1 });
+  });
+
+  it('uses the whole height, so nothing gets squashed when it is placed', () => {
+    const strokes = normalisedStrokes(DRAWN).flat();
+    const ys = strokes.map((point) => point.y);
+    expect(Math.min(...ys)).toBe(0);
+    expect(Math.max(...ys)).toBe(1);
   });
 
   it('keeps the shape, not the size', () => {
@@ -109,5 +117,19 @@ describe('keeping the signature', () => {
 
   it('ignores points that are not numbers', () => {
     expect(decodeSignature('[[["a","b"],[1,2]]]')).toEqual([[{ x: 1, y: 2 }]]);
+  });
+});
+
+describe('boxForRatio', () => {
+  it('fits a wide drawing inside the box and centres it', () => {
+    expect(boxForRatio(100, 100, 0.5)).toEqual({ x: 0, y: 25, width: 100, height: 50 });
+  });
+
+  it('fits a tall drawing by its height', () => {
+    expect(boxForRatio(100, 50, 2)).toEqual({ x: 37.5, y: 0, width: 25, height: 50 });
+  });
+
+  it('survives a ratio of zero', () => {
+    expect(boxForRatio(100, 50, 0).height).toBe(0);
   });
 });

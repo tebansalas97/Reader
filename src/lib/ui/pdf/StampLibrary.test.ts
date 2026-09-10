@@ -10,6 +10,13 @@ vi.mock('$lib/fs/api', () => ({
 }));
 
 beforeAll(() => {
+  function painted(width: number, height: number): Uint8ClampedArray {
+    const data = new Uint8ClampedArray(width * height * 4);
+    for (let y = 60; y < 130 && y < height; y += 1) {
+      for (let x = 40; x < 260 && x < width; x += 1) data[(y * width + x) * 4 + 3] = 255;
+    }
+    return data;
+  }
   const fake = {
     font: '',
     fillStyle: '',
@@ -18,6 +25,11 @@ beforeAll(() => {
     fillText: () => undefined,
     clearRect: () => undefined,
     drawImage: () => undefined,
+    getImageData: (_x: number, _y: number, w: number, h: number) => ({
+      data: painted(w, h),
+      width: w,
+      height: h,
+    }),
   };
   HTMLCanvasElement.prototype.getContext = (() => fake) as never;
   HTMLCanvasElement.prototype.toDataURL = (() => 'data:image/png;base64,AAAA') as never;
@@ -115,6 +127,42 @@ describe('StampLibrary', () => {
     expect(stamps.items).toHaveLength(1);
     expect(stamps.items[0]?.kind).toBe('image');
     expect(stamps.items[0]?.name).toBe('Esteban Salas');
+    expect(stamps.items[0]?.ratio).toBeCloseTo(90 / 240, 2);
+  });
+
+  it('says so when the name could not be drawn', async () => {
+    const context = HTMLCanvasElement.prototype.getContext as unknown as () => {
+      getImageData: (x: number, y: number, w: number, h: number) => {
+        data: Uint8ClampedArray;
+        width: number;
+        height: number;
+      };
+    };
+    const original = context();
+    const kept = original.getImageData;
+    original.getImageData = (_x, _y, w, h) => ({
+      data: new Uint8ClampedArray(w * h * 4),
+      width: w,
+      height: h,
+    });
+
+    const { container } = render(StampLibrary, props());
+    const typeButton = [...container.querySelectorAll('.head .text')].find(
+      (b) => b.textContent?.trim() === 'Escribir',
+    ) as HTMLButtonElement;
+    typeButton.click();
+    await tick();
+
+    const input = container.querySelector('.typed') as HTMLInputElement;
+    input.value = 'Esteban';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    await tick();
+    (container.querySelector('.primary') as HTMLButtonElement).click();
+    await tick();
+
+    expect(stamps.items).toHaveLength(0);
+    expect(container.querySelector('.failed')).not.toBeNull();
+    original.getImageData = kept;
   });
 
   it('closes when the backdrop is pressed', () => {
