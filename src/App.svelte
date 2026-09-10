@@ -71,6 +71,7 @@
   } from '$lib/pdf/pages';
   import { MANY_PAGES, printPlan, renderForPrint } from '$lib/pdf/print';
   import { rangeText } from '$lib/pdf/print-range';
+  import { nextMode } from '$lib/pdf/spread';
   import PrintDialog from '$lib/ui/pdf/PrintDialog.svelte';
   import { buildSavedPdfWithReport, extractPages, insertPages } from '$lib/pdf/save';
   import { nextZoomStep } from '$lib/pdf/render';
@@ -695,6 +696,11 @@
     }
   }
 
+  function cycleReadMode(): void {
+    prefs.update({ pdfMode: nextMode(prefs.current.pdfMode) });
+    toasts.push(t(`pdf.mode.${prefs.current.pdfMode}`));
+  }
+
   function printFlow(): void {
     if (activePdf) {
       printRange = ui.selectedPages.length > 0 ? rangeText(ui.selectedPages.map((i) => i + 1)) : '';
@@ -809,7 +815,10 @@
       close: () => {
         if (documents.activeId) requestClose(documents.activeId);
       },
-      cycleView: () => ui.cycleViewMode(),
+      cycleView: () => {
+        if (activePdf) cycleReadMode();
+        else ui.cycleViewMode();
+      },
       toggleFiles: () => ui.toggleSidebar('files'),
       toggleOutline: () => ui.toggleSidebar('outline'),
       toggleZen: () => ui.toggleZen(),
@@ -1109,6 +1118,8 @@
       onsignature={() => (ui.signatureOpen = true)}
       night={prefs.current.pdfNight}
       onnight={() => prefs.update({ pdfNight: !prefs.current.pdfNight })}
+      mode={prefs.current.pdfMode}
+      onmode={cycleReadMode}
     />
   {:else if ui.showToolbar && !ui.zen}
     <Toolbar disabled={active === null} onaction={handleAction} />
@@ -1197,6 +1208,7 @@
               stamp={stamps.byId(stamps.active)}
               hit={pdfHit}
               night={prefs.current.pdfNight}
+              mode={prefs.current.pdfMode}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
               onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}

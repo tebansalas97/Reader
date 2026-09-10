@@ -22,9 +22,18 @@
   import { scaleFor } from '$lib/pdf/render';
   import { offsetOfPage, visibleRange } from '$lib/pdf/virtual';
   import {
+    pageOfRow,
+    pageStep,
+    rowHeights,
+    rowOfPage,
+    rowWidths,
+    rowsFor,
+    type ReadMode,
+  } from '$lib/pdf/spread';
+  import {
     anchoredOffset,
-    contentWidth,
     pageHeights,
+    pageWidths,
     tallestPage,
     wheelZoom,
     widestPage,
@@ -55,6 +64,7 @@
     ondelete?: (ids: string[]) => void;
     hit?: { page: number; items: number[] } | null;
     night?: boolean;
+    mode?: ReadMode;
     onedit?: (edit: TextEdit) => void;
     onunedit?: (id: string) => void;
   }
@@ -78,6 +88,7 @@
     ondelete,
     hit = null,
     night = false,
+    mode = 'continuous',
     onedit,
     onunedit,
   }: Props = $props();
@@ -112,20 +123,20 @@
     zoom === 'fit-page' ? tallestPage(sizes, rotation) : widestPage(sizes, rotation),
   );
 
+  const room = $derived(
+    mode === 'double'
+      ? { width: Math.max(1, (viewportWidth - GAP) / 2), height: viewportHeight }
+      : { width: viewportWidth, height: viewportHeight },
+  );
+
   const scale = $derived(
-    fitSize === null
-      ? 1
-      : scaleFor(
-          fitSize,
-          zoom,
-          { width: viewportWidth, height: viewportHeight },
-          rotation,
-          PADDING,
-        ),
+    fitSize === null ? 1 : scaleFor(fitSize, zoom, room, rotation, PADDING),
   );
 
   const heights = $derived(pageHeights(sizes, scale, rotation));
-  const range = $derived(visibleRange(heights, scrollTop - PADDING, viewportHeight, 2, GAP));
+  const rows = $derived(rowsFor(mode, sizes.length, doc?.page ?? 1));
+  const bands = $derived(rowHeights(rows, heights));
+  const range = $derived(visibleRange(bands, scrollTop - PADDING, viewportHeight, 2, GAP));
   const annotations = $derived(doc?.annotations ?? []);
   const edits = $derived(doc?.edits ?? []);
   const picking = $derived(tool === 'text');
@@ -153,8 +164,9 @@
   const selected = $derived(annotations.find((entry) => entry.id === selectedId) ?? null);
   let anchor = $state<{ x: number; y: number } | null>(null);
 
+  const widths = $derived(pageWidths(sizes, scale, rotation));
   const stripWidth = $derived(
-    Math.max(viewportWidth, contentWidth(sizes, scale, rotation) + PADDING * 2),
+    Math.max(viewportWidth, Math.max(0, ...rowWidths(rows, widths, GAP)) + PADDING * 2),
   );
 
   $effect(() => {
@@ -243,8 +255,8 @@
   $effect(() => {
     const page = doc?.page ?? 1;
     const node = scroller;
-    if (!node || heights.length === 0) return;
-    const target = offsetOfPage(heights, page - 1, GAP) + PADDING;
+    if (!node || bands.length === 0) return;
+    const target = offsetOfPage(bands, rowOfPage(rows, page - 1), GAP) + PADDING;
     if (Math.abs(node.scrollTop - target) < 4) return;
     programmatic = true;
     node.scrollTop = target;
@@ -257,9 +269,10 @@
     const node = scroller;
     if (!node) return;
     scrollTop = node.scrollTop;
-    if (programmatic || heights.length === 0) return;
-    const first = visibleRange(heights, node.scrollTop - PADDING, node.clientHeight, 0, GAP).first;
-    if (doc && first + 1 !== doc.page) documents.setPage(docId, first + 1);
+    if (programmatic || bands.length === 0 || mode === 'single') return;
+    const first = visibleRange(bands, node.scrollTop - PADDING, node.clientHeight, 0, GAP).first;
+    const page = pageOfRow(rows, first);
+    if (doc && page !== doc.page) documents.setPage(docId, page);
   }
 
   function onWheel(event: WheelEvent): void {
@@ -388,6 +401,40 @@
       for (const annotation of moving) {
         onchange?.(movedBy(annotation, step[0] * size, step[1] * size));
       }
+    }
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
+  $effect(() => {
+    if (mode === 'continuous') return;
+
+    function onKeyDown(event: KeyboardEvent): void {
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || target?.isContentEditable) return;
+      if (event.ctrlKey || event.altKey || event.metaKey) return;
+
+      const count = sizes.length;
+      const page = doc?.page ?? 1;
+      const node = scroller;
+      const atBottom = !node || node.scrollTop + node.clientHeight >= node.scrollHeight - 4;
+      const atTop = !node || node.scrollTop <= 4;
+
+      let next = page;
+      if (event.key === 'PageDown') {
+        if (!atBottom) return;
+        next = pageStep(mode, page, count, true);
+      } else if (event.key === 'PageUp') {
+        if (!atTop) return;
+        next = pageStep(mode, page, count, false);
+      } else if (event.key === 'Home') next = 1;
+      else if (event.key === 'End') next = count;
+      else return;
+
+      event.preventDefault();
+      if (next !== page) documents.setPage(docId, next);
     }
 
     window.addEventListener('keydown', onKeyDown);
@@ -529,14 +576,17 @@
     <p class="note">{t('pdf.loading')}</p>
   {:else if handle}
     <div class="pages" style="gap: {GAP}px; padding: {PADDING}px; width: {stripWidth}px">
-      {#each sizes as size, index (index)}
+      {#each rows as row, band (band)}
+      <div class="row" style="gap: {GAP}px">
+      {#each row as index (index)}
+        {@const size = sizes[index]!}
         <PdfPage
           {index}
           page={plan[index]?.source ?? index + 1}
           {size}
           {scale}
           {rotation}
-          live={index >= range.renderFirst && index <= range.renderLast}
+          live={band >= range.renderFirst && band <= range.renderLast}
           getPage={(n) => handle!.page(plan[n - 1]?.source ?? n)}
           annotations={byPage.get(plan[index]?.source ?? index + 1) ?? []}
           fields={fieldsOnPage(doc?.fields ?? [], plan[index]?.source ?? index + 1)}
@@ -569,6 +619,8 @@
           onselect={(id, additive) => onselect?.(toggleSelection(selectedIds, id, additive))}
           onchange={(annotation) => onchange?.(annotation)}
         />
+      {/each}
+      </div>
       {/each}
     </div>
   {/if}
@@ -612,6 +664,11 @@
     align-items: center;
     min-height: 100%;
     box-sizing: border-box;
+  }
+
+  .row {
+    display: flex;
+    align-items: flex-start;
   }
 
   .note {

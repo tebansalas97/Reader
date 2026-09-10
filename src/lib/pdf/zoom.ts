@@ -47,6 +47,10 @@ export function pageHeights(sizes: PageSize[], scale: number, rotation: number):
   return sizes.map((size) => rotatedSize(size, rotation).height * scale);
 }
 
+export function pageWidths(sizes: PageSize[], scale: number, rotation: number): number[] {
+  return sizes.map((size) => rotatedSize(size, rotation).width * scale);
+}
+
 export function contentWidth(sizes: PageSize[], scale: number, rotation: number): number {
   const widest = widestPage(sizes, rotation);
   return widest ? rotatedSize(widest, rotation).width * scale : 0;

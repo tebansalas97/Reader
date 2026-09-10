@@ -6,6 +6,7 @@ import {
   centredOffset,
   contentWidth,
   pageHeights,
+  pageWidths,
   tallestPage,
   wheelZoom,
   widestPage,
@@ -139,5 +140,20 @@ describe('wheelZoom', () => {
 
   it('never goes below the minimum', () => {
     expect(wheelZoom(MIN_SCALE, 100)).toBe(MIN_SCALE);
+  });
+});
+
+describe('pageWidths', () => {
+  it('measures every page across', () => {
+    const sizes: PageSize[] = [
+      { width: 600, height: 800, rotation: 0 },
+      { width: 300, height: 400, rotation: 0 },
+    ];
+    expect(pageWidths(sizes, 2, 0)).toEqual([1200, 600]);
+  });
+
+  it('follows the rotation', () => {
+    const sizes: PageSize[] = [{ width: 600, height: 800, rotation: 0 }];
+    expect(pageWidths(sizes, 1, 90)).toEqual([800]);
   });
 });

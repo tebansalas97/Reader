@@ -1,4 +1,5 @@
 import { getPrefs, setPrefs } from '$lib/fs/api';
+import { READ_MODES, type ReadMode } from '$lib/pdf/spread';
 
 export interface Prefs {
   theme: 'system' | 'light' | 'dark';
@@ -29,6 +30,7 @@ export interface Prefs {
   annotationColor: string;
   sidebarPanel: 'files' | 'outline' | 'search' | 'history' | 'pages' | 'marks' | null;
   pdfNight: boolean;
+  pdfMode: ReadMode;
   restoreSession: boolean;
   session: string[];
 }
@@ -62,6 +64,7 @@ export const DEFAULT_PREFS: Prefs = {
   annotationColor: '#ffd400',
   sidebarPanel: null,
   pdfNight: false,
+  pdfMode: 'continuous',
   restoreSession: true,
   session: [],
 };
@@ -126,6 +129,7 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
       ? (stored.sidebarPanel as Prefs['sidebarPanel'])
       : null,
     pdfNight: bool(stored.pdfNight, d.pdfNight),
+    pdfMode: oneOf(stored.pdfMode, READ_MODES, d.pdfMode),
     restoreSession: bool(stored.restoreSession, d.restoreSession),
     session: Array.isArray(stored.session)
       ? stored.session.filter((entry): entry is string => typeof entry === 'string').slice(0, 20)

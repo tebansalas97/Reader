@@ -3,6 +3,7 @@
   import type { AnnotationKind } from '$lib/pdf/annotations/model';
   import { PALETTE } from '$lib/pdf/annotations/palette';
   import { nextZoomStep } from '$lib/pdf/render';
+  import type { ReadMode } from '$lib/pdf/spread';
   import type { PdfDocument } from '$lib/state/documents.svelte';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
 
@@ -19,6 +20,8 @@
     onsignature: () => void;
     night: boolean;
     onnight: () => void;
+    mode: ReadMode;
+    onmode: () => void;
   }
 
   const {
@@ -34,6 +37,8 @@
     onsignature,
     night,
     onnight,
+    mode,
+    onmode,
   }: Props = $props();
 
   const TOOLS: Array<{ kind: AnnotationKind; path: string }> = [
@@ -219,6 +224,25 @@
   {/if}
 
   <div class="sep"></div>
+
+  <button
+    class="tool"
+    title={t(`pdf.mode.${mode}`)}
+    aria-label={t(`pdf.mode.${mode}`)}
+    onclick={onmode}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      {#if mode === 'single'}
+        <rect x="4.5" y="2.5" width="7" height="11" />
+      {:else if mode === 'double'}
+        <rect x="1.5" y="2.5" width="6" height="11" />
+        <rect x="8.5" y="2.5" width="6" height="11" />
+      {:else}
+        <rect x="4.5" y="1" width="7" height="6" />
+        <rect x="4.5" y="9" width="7" height="6" />
+      {/if}
+    </svg>
+  </button>
 
   <button
     class="tool"
