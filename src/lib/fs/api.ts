@@ -67,6 +67,14 @@ export async function writeBytesRaw(path: string, bytes: Uint8Array): Promise<nu
   }
 }
 
+export function startupExport(): Promise<string | null> {
+  return call<string | null>('startup_export');
+}
+
+export function exportPdf(path: string): Promise<void> {
+  return call<void>('export_pdf', { path });
+}
+
 export function getStamps<T>(): Promise<T> {
   return call<T>('get_stamps');
 }

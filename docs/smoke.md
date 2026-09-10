@@ -212,3 +212,13 @@ WebView. Recorre la lista con la compilación de release instalada, no con
     Edge. Ahí ya no se puede mover: pasa a ser parte del archivo. Sí se puede
     seleccionar y borrar.
 65. Guarda dos veces seguidas: la imagen no se duplica.
+
+## Exportar a PDF
+
+66. Abre un Markdown y pulsa `Ctrl+Alt+P`. Elige dónde guardarlo: el PDF se
+    escribe solo, sin pasar por el diálogo de impresión.
+67. Ábrelo: tiene el mismo formato que la vista previa, el texto se puede
+    seleccionar y los enlaces llevan su dirección al lado.
+68. Con un PDF abierto, «Exportar a PDF» y «Exportar a HTML» están en gris.
+69. Desde la consola: `reader.exe documento.md --export-pdf salida.pdf` escribe
+    el archivo y cierra la app.

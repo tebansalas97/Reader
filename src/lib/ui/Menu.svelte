@@ -24,7 +24,8 @@
     ],
     [
       { action: 'exportHtml', key: 'menu.exportHtml', hint: 'Ctrl+Shift+H' },
-      { action: 'print', key: 'menu.exportPdf', hint: 'Ctrl+P' },
+      { action: 'exportPdf', key: 'menu.exportPdf', hint: 'Ctrl+Alt+P' },
+      { action: 'print', key: 'menu.print', hint: 'Ctrl+P' },
     ],
     [
       { action: 'toggleFiles', key: 'sidebar.files', hint: 'Ctrl+Shift+E' },

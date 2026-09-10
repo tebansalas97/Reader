@@ -2928,6 +2928,8 @@ dependencies = [
  "tauri-plugin-window-state",
  "tempfile",
  "thiserror 2.0.20",
+ "webview2-com",
+ "windows",
 ]
 
 [[package]]

@@ -12,6 +12,7 @@ const BINDINGS: Record<string, string> = {
   'ctrl+tab': 'nextTab',
   'ctrl+shift+tab': 'prevTab',
   'ctrl+shift+h': 'exportHtml',
+  'ctrl+alt+p': 'exportPdf',
   'ctrl+p': 'print',
   'ctrl+shift+p': 'palette',
   'ctrl+shift+f': 'toggleSearch',

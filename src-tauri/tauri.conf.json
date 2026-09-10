@@ -63,6 +63,12 @@
           "index": 1,
           "takesValue": true,
           "multiple": true
+        },
+        {
+          "name": "export-pdf",
+          "short": "e",
+          "takesValue": true,
+          "description": "Escribe el documento como PDF y cierra"
         }
       ]
     }

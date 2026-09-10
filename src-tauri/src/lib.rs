@@ -3,6 +3,16 @@ mod error;
 
 use tauri::{Emitter, Manager};
 
+fn cli_export(app: &tauri::AppHandle) -> Option<String> {
+    use tauri_plugin_cli::CliExt;
+    let matches = app.cli().matches().ok()?;
+    let arg = matches.args.get("export-pdf")?;
+    match &arg.value {
+        serde_json::Value::String(path) => Some(path.clone()),
+        _ => None,
+    }
+}
+
 fn cli_paths(app: &tauri::AppHandle) -> Vec<String> {
     use tauri_plugin_cli::CliExt;
     let Ok(matches) = app.cli().matches() else {
@@ -43,6 +53,8 @@ pub fn run() {
         .setup(|app| {
             let paths = cli_paths(&app.handle().clone());
             app.manage(commands::StartupPaths(std::sync::Mutex::new(paths)));
+            let target = cli_export(&app.handle().clone());
+            app.manage(commands::export::ExportTarget(std::sync::Mutex::new(target)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -50,6 +62,8 @@ pub fn run() {
             commands::fs::write_text,
             commands::fs::read_bytes,
             commands::fs::write_bytes,
+            commands::export::export_pdf,
+            commands::export::startup_export,
             commands::stamps::get_stamps,
             commands::stamps::set_stamps,
             commands::fs::read_bytes_raw,

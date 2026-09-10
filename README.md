@@ -76,6 +76,15 @@ npm run tauri dev
 | `npm run perf` | Mide arranque, memoria y tamaño, y escribe `docs/perf.md` |
 | `cargo test` | Ejecuta las pruebas de Rust, desde `src-tauri` |
 
+También desde la línea de órdenes:
+
+```
+reader.exe documento.md --export-pdf salida.pdf
+```
+
+Abre el documento, lo escribe como PDF y cierra. Sirve para generar un PDF sin
+tocar la interfaz.
+
 ## Atajos
 
 | Atajo | Acción |
@@ -92,7 +101,8 @@ npm run tauri dev
 | `Ctrl+Shift+U` | Panel de esquema |
 | `F11` | Modo zen |
 | `Ctrl+Shift+H` | Exportar a HTML |
-| `Ctrl+P` | Exportar a PDF |
+| `Ctrl+Alt+P` | Exportar a PDF |
+| `Ctrl+P` | Imprimir |
 | `Ctrl+Shift+P` | Paleta de comandos |
 | `Ctrl+Shift+F` | Buscar en la carpeta |
 | `Ctrl++` / `Ctrl+-` / `Ctrl+0` | Aumentar, reducir o restaurar el tamano del texto |

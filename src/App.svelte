@@ -6,12 +6,14 @@
   import { onMount } from 'svelte';
   import {
     allowAssetDir,
+    exportPdf,
     listDir,
     readBytes,
     ReaderError,
     saveAsset,
     snapshotDocument,
     readBytesRaw,
+    startupExport,
     startupPaths,
     writeBytes,
     writeBytesRaw,
@@ -532,6 +534,46 @@
     }
   }
 
+  async function exportAndQuit(target: string): Promise<void> {
+    const doc = documents.activeMarkdown;
+    if (doc) {
+      ui.viewMode = 'preview';
+      ui.zen = true;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      await exportPdf(target).catch(() => undefined);
+    }
+    await getCurrentWindow().close();
+  }
+
+  async function exportPdfFlow(): Promise<void> {
+    const doc = documents.activeMarkdown;
+    if (!doc) {
+      if (activePdf) toasts.error(t('error.onlyMarkdown'));
+      return;
+    }
+
+    const target = await saveDialog({
+      defaultPath: suggestedName(doc).replace(/\.(md|markdown|txt)$/i, '') + '.pdf',
+      filters: PDF_FILTERS,
+    }).catch(() => null);
+    if (!target) return;
+
+    const previous = ui.viewMode;
+    ui.viewMode = 'preview';
+    saving = true;
+    try {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await exportPdf(target);
+      toasts.push(basename(target));
+    } catch (error) {
+      reportError('error.exportFailed', error);
+    } finally {
+      ui.viewMode = previous;
+      saving = false;
+    }
+  }
+
   function printFlow(): void {
     if (activePdf) {
       void printPdfFlow(activePdf);
@@ -663,6 +705,7 @@
       nextTab: () => cycleTab(1),
       prevTab: () => cycleTab(-1),
       exportHtml: () => void exportHtmlFlow(),
+      exportPdf: () => void exportPdfFlow(),
       print: printFlow,
       palette: () => (ui.paletteOpen = true),
       viewEditor: () => (ui.viewMode = 'editor'),
@@ -764,6 +807,9 @@
 
       const paths = await startupPaths().catch(() => []);
       for (const path of paths) await openDocument(path);
+
+      const target = await startupExport().catch(() => null);
+      if (target) await exportAndQuit(target);
       if (!disposed) await appWindow.show();
 
       const offFs = await onFsChanged(({ path, kind }) => {
@@ -873,7 +919,7 @@
       onclose={requestClose}
       onaction={handleAction}
       onrequestclose={() => void requestQuit()}
-      unavailable={activePdf ? ['exportHtml'] : []}
+      unavailable={activePdf ? ['exportHtml', 'exportPdf'] : []}
     />
   {/if}
 

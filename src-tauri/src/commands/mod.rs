@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod dir;
+pub mod export;
 pub mod fs;
 pub mod history;
 pub mod prefs;
