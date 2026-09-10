@@ -75,13 +75,16 @@ describe('what each annotation allows', () => {
     expect(canRotate(stamp)).toBe(true);
   });
 
-  it('leaves alone an image that was already in the file', () => {
+  it('deja mover y estirar una imagen que ya estaba en el archivo', () => {
     const stamp = annotation('stamp', { quads: HIGHLIGHT.quads, origin: 'file', ref: '9R' });
-    expect(canEdit(stamp)).toBe(false);
-    expect(canResize(stamp)).toBe(false);
+    expect(canEdit(stamp)).toBe(true);
+    expect(canResize(stamp)).toBe(true);
+    expect(movedBy(stamp, 10, 10)).not.toBe(stamp);
+  });
+
+  it('no deja girar una imagen que ya estaba en el archivo', () => {
+    const stamp = annotation('stamp', { quads: HIGHLIGHT.quads, origin: 'file', ref: '9R' });
     expect(canRotate(stamp)).toBe(false);
-    expect(movedBy(stamp, 10, 10)).toBe(stamp);
-    expect(scaledInto(stamp, boundsOf(stamp)!, { x: 0, y: 0, width: 9, height: 9 })).toBe(stamp);
   });
 });
 

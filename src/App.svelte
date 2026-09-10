@@ -281,7 +281,11 @@
       ui.selection = [];
 
       textEdits.close();
-      if (written.edits.length > 0 || current.some((annotation) => annotation.kind === 'stamp')) {
+      if (
+        written.patched > 0 ||
+        written.edits.length > 0 ||
+        current.some((annotation) => annotation.kind === 'stamp')
+      ) {
         documents.refreshPdfSource(doc.id, convertFileSrc(destination));
       } else {
         pdfHandle?.hideFromCanvas(

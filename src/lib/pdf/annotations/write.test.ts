@@ -9,7 +9,14 @@ import { rectToQuad } from './geometry';
 import { stampQuad } from './stamp';
 import { annotationKey, type Annotation, type AnnotationKind } from './model';
 import { readAnnotations } from './read';
-import { PdfWriteError, staleRefs, toCreate, writeAnnotations } from './write';
+import {
+  movedStamps,
+  PdfWriteError,
+  refFromKey,
+  staleRefs,
+  toCreate,
+  writeAnnotations,
+} from './write';
 
 function annotation(kind: AnnotationKind, extra: Partial<Annotation> = {}): Annotation {
   return {
@@ -329,5 +336,87 @@ describe('writeAnnotations', () => {
     await expect(writeAnnotations(new Uint8Array([1, 2, 3]), [HIGHLIGHT], [])).rejects.toBeInstanceOf(
       PdfWriteError,
     );
+  });
+
+  describe('mover un sello ya guardado', () => {
+    async function savedStamp(): Promise<{ bytes: Uint8Array; mark: Annotation }> {
+      const stamp = annotation('stamp', {
+        quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+        image: STAMP_PNG,
+      });
+      const bytes = await writeAnnotations(await makePdf([{ text: 'a' }]), [stamp], []);
+      const [read] = await readAnnotations(await reopen(bytes));
+      return { bytes, mark: read! };
+    }
+
+    it('mueve el sello de sitio dentro del archivo', async () => {
+      const { bytes, mark } = await savedStamp();
+      const moved = {
+        ...mark,
+        quads: [stampQuad({ x: 300, y: 400, width: 180, height: 90 })],
+      };
+      const written = await writeAnnotations(bytes, [moved], [mark]);
+      const raw = (await (await (await reopen(written)).page(1)).getAnnotations({
+        intent: 'display',
+      })) as Array<{ rect?: number[] }>;
+      expect(raw).toHaveLength(1);
+      expect(raw[0]?.rect?.[0]).toBeCloseTo(300, 1);
+      expect(raw[0]?.rect?.[1]).toBeCloseTo(400, 1);
+    });
+
+    it('no pierde la imagen al moverlo', async () => {
+      const { bytes, mark } = await savedStamp();
+      const moved = {
+        ...mark,
+        quads: [stampQuad({ x: 300, y: 400, width: 180, height: 90 })],
+      };
+      const written = await writeAnnotations(bytes, [moved], [mark]);
+      const raw = (await (await (await reopen(written)).page(1)).getAnnotations({
+        intent: 'display',
+      })) as Array<{ hasAppearance?: boolean }>;
+      expect(raw[0]?.hasAppearance).toBe(true);
+    });
+  });
+});
+
+describe('movedStamps', () => {
+  const saved = annotation('stamp', {
+    ref: '12R',
+    origin: 'file',
+    quads: [stampQuad({ x: 100, y: 200, width: 180, height: 90 })],
+  });
+
+  it('sees a stamp of the file that changed place', () => {
+    const moved = {
+      ...saved,
+      quads: [stampQuad({ x: 140, y: 260, width: 180, height: 90 })],
+    };
+    expect(movedStamps([moved], [saved])).toHaveLength(1);
+  });
+
+  it('leaves alone a stamp that did not move', () => {
+    expect(movedStamps([saved], [saved])).toHaveLength(0);
+  });
+
+  it('leaves alone our own stamps, which are written again', () => {
+    const own = { ...saved, image: STAMP_PNG, ref: undefined, origin: 'reader' as const };
+    expect(movedStamps([own], [])).toHaveLength(0);
+  });
+});
+
+describe('refFromKey', () => {
+  it('reads the object number', async () => {
+    const lib = await import('pdf-lib');
+    expect(refFromKey(lib, '12R')?.objectNumber).toBe(12);
+  });
+
+  it('reads the generation when it is there', async () => {
+    const lib = await import('pdf-lib');
+    expect(refFromKey(lib, '12R3')?.generationNumber).toBe(3);
+  });
+
+  it('refuses something that is not a reference', async () => {
+    const lib = await import('pdf-lib');
+    expect(refFromKey(lib, 'hola')).toBeNull();
   });
 });

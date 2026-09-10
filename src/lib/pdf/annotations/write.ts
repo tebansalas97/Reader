@@ -227,12 +227,52 @@ async function embedTextFont(document: PDFDocument): Promise<TextFont | null> {
   }
 }
 
+export function refFromKey(lib: PdfLib, key: string): PDFRef | null {
+  const found = /^(\d+)R(\d*)$/.exec(key);
+  if (!found) return null;
+  return lib.PDFRef.of(Number(found[1]), found[2] === '' ? 0 : Number(found[2]));
+}
+
+export function movedStamps(current: Annotation[], original: Annotation[]): Annotation[] {
+  const before = new Map<string, Annotation>();
+  for (const annotation of original) {
+    if (annotation.ref) before.set(annotation.ref, annotation);
+  }
+
+  return current.filter((annotation) => {
+    if (annotation.kind !== 'stamp' || typeof annotation.image === 'string') return false;
+    if (!annotation.ref) return false;
+    const was = before.get(annotation.ref);
+    return was !== undefined && annotationKey(was) !== annotationKey(annotation);
+  });
+}
+
+export function patchStamps(
+  lib: PdfLib,
+  document: PDFDocument,
+  moved: Annotation[],
+): number {
+  let done = 0;
+  for (const annotation of moved) {
+    const ref = annotation.ref ? refFromKey(lib, annotation.ref) : null;
+    const bounds = appearanceBounds(annotation);
+    if (!ref || !bounds) continue;
+    const dictionary = document.context.lookupMaybe(ref, lib.PDFDict);
+    if (!dictionary) continue;
+    dictionary.set(lib.PDFName.of('Rect'), document.context.obj(rounded(rectNumbers(bounds))));
+    dictionary.set(lib.PDFName.of('Contents'), lib.PDFHexString.fromText(annotation.contents));
+    dictionary.set(lib.PDFName.of('M'), lib.PDFString.of(pdfDate(Date.now())));
+    done += 1;
+  }
+  return done;
+}
+
 export async function applyAnnotations(
   document: PDFDocument,
   current: Annotation[],
   original: Annotation[],
   sourcePages?: PDFPage[],
-): Promise<void> {
+): Promise<number> {
   const lib = await import('pdf-lib');
   const pages = sourcePages ?? document.getPages();
   const stale = staleRefs(current, original);
@@ -275,6 +315,8 @@ export async function applyAnnotations(
     if (annots) annots.push(ref);
     else page.node.set(lib.PDFName.of('Annots'), context.obj([ref]));
   }
+
+  return patchStamps(lib, document, movedStamps(current, original));
 }
 
 export async function writeAnnotations(

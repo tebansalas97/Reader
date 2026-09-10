@@ -26,6 +26,7 @@ export interface PdfSaveInput {
 export interface SavedPdf {
   bytes: Uint8Array;
   edits: EditReport[];
+  patched: number;
 }
 
 type PdfLib = typeof import('pdf-lib');
@@ -76,14 +77,14 @@ export async function buildSavedPdfWithReport(input: PdfSaveInput): Promise<Save
   const moved = !samePlan(input.pages, input.savedPages);
   if (moved) applyPlan(lib, document, sourcePages, input.pages);
 
-  await applyAnnotations(
+  const patched = await applyAnnotations(
     document,
     withoutLostPages(input.annotations, input.pages),
     withoutLostPages(input.savedAnnotations, input.pages),
     sourcePages,
   );
 
-  return { bytes: await saveWritten(document), edits };
+  return { bytes: await saveWritten(document), edits, patched };
 }
 
 export async function extractPages(bytes: Uint8Array, sources: number[]): Promise<Uint8Array> {

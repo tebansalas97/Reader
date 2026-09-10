@@ -81,4 +81,27 @@ describe('AnnotationPopover', () => {
       ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(onclose).toHaveBeenCalled();
   });
+
+  it('deja comentar una imagen que ya estaba en el archivo', () => {
+    const stamp: Annotation = { ...ANNOTATION, kind: 'stamp', origin: 'file', ref: '9R' };
+    const { container } = render(AnnotationPopover, props({ annotation: stamp }));
+    expect(container.querySelector('textarea')).not.toBeNull();
+  });
+
+  it('no ofrece colores para una imagen que ya estaba en el archivo', () => {
+    const stamp: Annotation = { ...ANNOTATION, kind: 'stamp', origin: 'file', ref: '9R' };
+    const { container } = render(AnnotationPopover, props({ annotation: stamp }));
+    expect(container.querySelector('.swatch')).toBeNull();
+  });
+
+  it('ofrece el tamano de la letra solo al escribir texto', () => {
+    const text: Annotation = {
+      ...ANNOTATION,
+      kind: 'freetext',
+      quads: undefined,
+      rect: { x: 10, y: 10, width: 100, height: 40 },
+    };
+    const { container } = render(AnnotationPopover, props({ annotation: text }));
+    expect(container.querySelector('.size input')).not.toBeNull();
+  });
 });

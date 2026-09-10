@@ -24,6 +24,7 @@
     canEdit,
     canResize,
     canRotate,
+    isSavedStamp,
     centreOf,
     rotatedAround,
     scaledInto,
@@ -47,6 +48,9 @@
     stamp?: StampItem | null;
     oncreate: (annotation: Annotation) => void;
     onredact?: (rect: Rect) => void;
+    ghosts?: Record<string, string>;
+    onghost?: (id: string, image: string) => void;
+    snapshot?: (area: Rect) => string | null;
     onselect: (id: string, additive: boolean) => void;
     onchange?: (annotation: Annotation) => void;
   }
@@ -64,6 +68,9 @@
     stamp = null,
     oncreate,
     onredact,
+    ghosts = {},
+    onghost,
+    snapshot,
     onselect,
     onchange,
   }: Props = $props();
@@ -103,9 +110,13 @@
   const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
   const chosen = $derived(new Set(selectedIds));
   const shown = $derived(
-    annotations.map(
-      (annotation) => drafts.find((entry) => entry.id === annotation.id) ?? annotation,
-    ),
+    annotations
+      .map((annotation) => drafts.find((entry) => entry.id === annotation.id) ?? annotation)
+      .map((annotation) =>
+        isSavedStamp(annotation) && ghosts[annotation.id]
+          ? { ...annotation, image: ghosts[annotation.id] }
+          : annotation,
+      ),
   );
   const painted = $derived(
     shown.map((annotation) => ({
@@ -196,6 +207,14 @@
     return toPdfPoint(opposite, size, scale, rotation);
   }
 
+  function keepGhost(annotation: Annotation): void {
+    if (!isSavedStamp(annotation) || ghosts[annotation.id] || !snapshot) return;
+    const area = paintAnnotation(annotation, size, scale, rotation).box;
+    if (!area) return;
+    const image = snapshot(area);
+    if (image) onghost?.(annotation.id, image);
+  }
+
   function beginGesture(
     event: PointerEvent,
     mode: Mode,
@@ -204,6 +223,7 @@
   ): void {
     const annotation = on ?? selected;
     if (!annotation || event.button !== 0) return;
+    keepGhost(annotation);
     const from = boundsOf(annotation);
     const centre = centreOf(annotation);
     if (!from || !centre) return;

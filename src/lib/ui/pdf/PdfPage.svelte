@@ -36,6 +36,9 @@
     oncreate?: (annotation: Annotation) => void;
     onselect?: (id: string, additive: boolean) => void;
     onredact?: (page: number, rect: PdfRect) => void;
+    ghosts?: Record<string, string>;
+    onghost?: (id: string, image: string) => void;
+    repaint?: number;
     onchange?: (annotation: Annotation) => void;
     fields?: FormField[];
     values?: FieldValues;
@@ -73,6 +76,9 @@
     edits = [],
     flash = [],
     night = false,
+    ghosts = {},
+    onghost,
+    repaint = 0,
     picking = false,
     onpick,
     onunedit,
@@ -85,6 +91,33 @@
   const spans: Array<HTMLElement | null> = [];
 
   const box = $derived(canvasSize(size, scale, rotation, globalThis.devicePixelRatio ?? 1));
+
+  function cutOut(area: PdfRect): string | null {
+    const node = canvas;
+    if (!node || !drawn || area.width <= 0 || area.height <= 0) return null;
+    const ratio = node.width / Math.max(1, node.clientWidth);
+    const cut = document.createElement('canvas');
+    cut.width = Math.max(1, Math.round(area.width * ratio));
+    cut.height = Math.max(1, Math.round(area.height * ratio));
+    const context = cut.getContext('2d');
+    if (!context) return null;
+    try {
+      context.drawImage(
+        node,
+        Math.round(area.x * ratio),
+        Math.round(area.y * ratio),
+        cut.width,
+        cut.height,
+        0,
+        0,
+        cut.width,
+        cut.height,
+      );
+      return cut.toDataURL('image/png');
+    } catch {
+      return null;
+    }
+  }
   const lit = $derived(
     flash.length === 0 ? [] : pieces.filter((piece) => flash.includes(piece.item)),
   );
@@ -108,6 +141,7 @@
     const currentSize = size;
     const currentIndex = index;
     const isLive = live;
+    void repaint;
 
     if (!node) return;
     if (!isLive) {
@@ -210,6 +244,9 @@
       {selectedIds}
       {stamp}
       oncreate={(annotation) => oncreate?.(annotation)}
+      {ghosts}
+      {onghost}
+      snapshot={cutOut}
       onredact={(rect) => onredact?.(page, rect)}
       onselect={(id, additive) => onselect?.(id, additive)}
       onchange={(annotation) => onchange?.(annotation)}

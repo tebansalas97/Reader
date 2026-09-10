@@ -165,6 +165,8 @@
   const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
   const selected = $derived(annotations.find((entry) => entry.id === selectedId) ?? null);
   let anchor = $state<{ x: number; y: number } | null>(null);
+  let ghosts = $state<Record<string, string>>({});
+  let repaint = $state(0);
 
   const widths = $derived(pageWidths(sizes, scale, rotation));
   const stripWidth = $derived(
@@ -198,6 +200,7 @@
           ...found.filter(repaintable).map((annotation) => annotation.ref ?? ''),
           ...forms.map((field) => field.id),
         ]);
+        ghosts = {};
         onannotations?.(found);
         onfields?.(forms);
         handle = opened;
@@ -450,6 +453,14 @@
     };
   });
 
+  function keepGhost(id: string, image: string): void {
+    if (ghosts[id]) return;
+    ghosts = { ...ghosts, [id]: image };
+    const annotation = annotations.find((entry) => entry.id === id);
+    if (annotation?.ref) handle?.hideFromCanvas([annotation.ref]);
+    repaint += 1;
+  }
+
   function closePopover(): void {
     const current = selected;
     if (current && current.kind === 'freetext' && current.contents.trim() === '') {
@@ -611,6 +622,9 @@
           edits={edits.filter((entry) => entry.page === (plan[index]?.source ?? index + 1))}
           flash={hit && hit.page === (plan[index]?.source ?? index + 1) ? hit.items : []}
           {night}
+          {ghosts}
+          {repaint}
+          onghost={keepGhost}
           {picking}
           onpick={(piece) => {
             const element = scroller?.querySelector<HTMLElement>(

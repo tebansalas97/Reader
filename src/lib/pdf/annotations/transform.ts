@@ -6,12 +6,16 @@ export function isOwnStamp(annotation: Annotation): boolean {
   return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
 }
 
+export function isSavedStamp(annotation: Annotation): boolean {
+  return annotation.kind === 'stamp' && typeof annotation.image !== 'string';
+}
+
 export function canEdit(annotation: Annotation): boolean {
-  return isOwnStamp(annotation);
+  return isOwnStamp(annotation) || isSavedStamp(annotation);
 }
 
 export function canResize(annotation: Annotation): boolean {
-  return annotation.kind !== 'note' && isOwnStamp(annotation);
+  return annotation.kind !== 'note' && (isOwnStamp(annotation) || isSavedStamp(annotation));
 }
 
 export function canRotate(annotation: Annotation): boolean {

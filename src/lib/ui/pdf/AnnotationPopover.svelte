@@ -2,7 +2,7 @@
   import { t } from '$lib/i18n';
   import type { Annotation } from '$lib/pdf/annotations/model';
   import { fontSizeOf } from '$lib/pdf/annotations/freetext';
-  import { canEdit } from '$lib/pdf/annotations/transform';
+  import { isOwnStamp } from '$lib/pdf/annotations/transform';
   import { PALETTE } from '$lib/pdf/annotations/palette';
 
   interface Props {
@@ -62,42 +62,42 @@
     if (event.key === 'Escape') onclose();
   }}
 >
-  {#if canEdit(annotation)}
+  {#if isOwnStamp(annotation)}
     <div class="colors">
-    {#each PALETTE as color (color)}
-      <button
-        class="swatch"
-        class:on={color.toLowerCase() === annotation.color.toLowerCase()}
-        style="--swatch: {color}"
-        title={color}
-        aria-label={color}
-        onclick={() => setColor(color)}
+      {#each PALETTE as color (color)}
+        <button
+          class="swatch"
+          class:on={color.toLowerCase() === annotation.color.toLowerCase()}
+          style="--swatch: {color}"
+          title={color}
+          aria-label={color}
+          onclick={() => setColor(color)}
         ></button>
       {/each}
     </div>
+  {/if}
 
-    <textarea
-      bind:this={field}
-      class="note"
-      rows={writing ? 3 : 2}
-      placeholder={writing ? t('pdf.textHint') : t('pdf.notePlaceholder')}
-      value={annotation.contents}
-      oninput={(event) => setContents(event.currentTarget.value)}
-    ></textarea>
+  <textarea
+    bind:this={field}
+    class="note"
+    rows={writing ? 3 : 2}
+    placeholder={writing ? t('pdf.textHint') : t('pdf.notePlaceholder')}
+    value={annotation.contents}
+    oninput={(event) => setContents(event.currentTarget.value)}
+  ></textarea>
 
-    {#if writing}
-      <label class="size">
-        <span>{t('pdf.textSize')}</span>
-        <input
-          type="number"
-          min="4"
-          max="96"
-          step="1"
-          value={fontSizeOf(annotation)}
-          oninput={(event) => setSize(Number(event.currentTarget.value))}
-        />
-      </label>
-    {/if}
+  {#if writing}
+    <label class="size">
+      <span>{t('pdf.textSize')}</span>
+      <input
+        type="number"
+        min="4"
+        max="96"
+        step="1"
+        value={fontSizeOf(annotation)}
+        oninput={(event) => setSize(Number(event.currentTarget.value))}
+      />
+    </label>
   {/if}
 
   <div class="row">
