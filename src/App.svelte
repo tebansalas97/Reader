@@ -4,7 +4,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { getCurrentWebview } from '@tauri-apps/api/webview';
   import { open as openDialog, save as saveDialog } from '@tauri-apps/plugin-dialog';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import {
     allowAssetDir,
     exportPdf,
@@ -39,6 +39,8 @@
     type Document,
   } from '$lib/state/documents.svelte';
   import { prefs, resetZoom, resolvedTheme, zoomEditor } from '$lib/state/prefs.svelte';
+  import { pathsToRestore, sameSession, sessionPaths } from '$lib/state/session';
+  import { pdfAutosaveDelay, shouldAutosavePdf } from '$lib/pdf/autosave';
   import { recent } from '$lib/state/recent.svelte';
   import { newStampId, stamps } from '$lib/state/stamps.svelte';
   import { textEdits } from '$lib/state/textedit.svelte';
@@ -119,6 +121,7 @@
   let printImages = $state<string[]>([]);
   let printing = $state(false);
   let appVersion = $state('');
+  let sessionReady = $state(false);
   let pdfHit = $state<{ page: number; items: number[] } | null>(null);
   let pdfHandle = $state<PdfHandle | null>(null);
   let pdfOutline = $state<OutlineEntry[]>([]);
@@ -210,7 +213,11 @@
     if (annotation) documents.updateAnnotation(doc.id, { ...annotation, color });
   }
 
-  async function savePdf(doc: PdfDocument, target?: string): Promise<'saved' | 'cancelled'> {
+  async function savePdf(
+    doc: PdfDocument,
+    target?: string,
+    quiet = false,
+  ): Promise<'saved' | 'cancelled'> {
     const source = doc.path;
     if (source === null) return target ? 'cancelled' : saveAsFlow(doc);
     const destination = target ?? source;
@@ -278,7 +285,7 @@
             total: written.edits.length,
           }),
         );
-      } else {
+      } else if (!quiet) {
         toasts.push(t('pdf.saved'));
       }
       return 'saved';
@@ -837,6 +844,15 @@
       const paths = await startupPaths().catch(() => []);
       for (const path of paths) await openDocument(path);
 
+      for (const path of pathsToRestore(
+        prefs.current.session,
+        paths,
+        prefs.current.restoreSession,
+      )) {
+        await openDocument(path).catch(() => undefined);
+      }
+      sessionReady = true;
+
       const target = await startupExport().catch(() => null);
       if (target) await exportAndQuit(target);
       if (!disposed) await appWindow.show();
@@ -868,9 +884,11 @@
       cleanups.push(offDrop);
 
       const offClose = await appWindow.onCloseRequested((event) => {
-        if (documents.dirtyDocuments.length === 0) return;
         event.preventDefault();
-        void requestQuit();
+        void (async () => {
+          await prefs.flush();
+          await requestQuit();
+        })();
       });
       cleanups.push(offClose);
     })();
@@ -879,6 +897,15 @@
       disposed = true;
       for (const off of cleanups) off();
     };
+  });
+
+  $effect(() => {
+    if (!sessionReady) return;
+    const paths = sessionPaths(documents.list.map((doc) => ({ path: doc.path })));
+    untrack(() => {
+      if (sameSession(paths, prefs.current.session)) return;
+      prefs.update({ session: paths });
+    });
   });
 
   onMount(() => {
@@ -919,6 +946,24 @@
     const doc = documents.active;
     const dirty = doc !== null && documentIsDirty(doc);
     document.title = doc ? `${dirty ? '• ' : ''}${doc.title} — Reader` : 'Reader';
+  });
+
+  $effect(() => {
+    const doc = documents.activePdf;
+    if (!doc) return;
+    const ready = shouldAutosavePdf({
+      mode: prefs.current.autosave,
+      dirty: documentIsDirty(doc),
+      hasPath: doc.path !== null,
+      saving,
+      selected: ui.selectedAnnotation !== null,
+      editingText: ui.editingText,
+    });
+    if (!ready) return;
+    const timer = setTimeout(() => {
+      void savePdf(doc, undefined, true);
+    }, pdfAutosaveDelay(prefs.current.autosaveDelayMs));
+    return () => clearTimeout(timer);
   });
 
   $effect(() => {
@@ -964,6 +1009,8 @@
       ontool={(tool) => ui.useTool(tool)}
       oncolor={(color) => applyColor(color)}
       onsignature={() => (ui.signatureOpen = true)}
+      night={prefs.current.pdfNight}
+      onnight={() => prefs.update({ pdfNight: !prefs.current.pdfNight })}
     />
   {:else if ui.showToolbar && !ui.zen}
     <Toolbar disabled={active === null} onaction={handleAction} />
@@ -1050,6 +1097,7 @@
               selectedId={ui.selectedAnnotation}
               stamp={stamps.byId(stamps.active)}
               hit={pdfHit}
+              night={prefs.current.pdfNight}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
               onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}

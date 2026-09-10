@@ -28,6 +28,9 @@ export interface Prefs {
   annotationAuthor: string;
   annotationColor: string;
   sidebarPanel: 'files' | 'outline' | 'search' | 'history' | 'pages' | 'marks' | null;
+  pdfNight: boolean;
+  restoreSession: boolean;
+  session: string[];
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -58,6 +61,9 @@ export const DEFAULT_PREFS: Prefs = {
   annotationAuthor: '',
   annotationColor: '#ffd400',
   sidebarPanel: null,
+  pdfNight: false,
+  restoreSession: true,
+  session: [],
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -119,6 +125,11 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     )
       ? (stored.sidebarPanel as Prefs['sidebarPanel'])
       : null,
+    pdfNight: bool(stored.pdfNight, d.pdfNight),
+    restoreSession: bool(stored.restoreSession, d.restoreSession),
+    session: Array.isArray(stored.session)
+      ? stored.session.filter((entry): entry is string => typeof entry === 'string').slice(0, 20)
+      : [],
   };
 }
 
@@ -134,6 +145,12 @@ class PrefsStore {
   update(patch: Partial<Prefs>): void {
     this.current = mergePrefs({ ...this.current, ...patch });
     this.schedule();
+  }
+
+  async flush(): Promise<void> {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    await setPrefs($state.snapshot(this.current)).catch(() => undefined);
   }
 
   private schedule(): void {

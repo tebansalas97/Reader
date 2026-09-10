@@ -34,6 +34,7 @@ class UiStore {
   selectedAnnotation = $state<string | null>(null);
   selectedPages = $state<number[]>([]);
   signatureOpen = $state(false);
+  editingText = $state(false);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);

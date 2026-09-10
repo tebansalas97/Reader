@@ -118,6 +118,7 @@ const es: Dict = {
   'pdf.signatureHint': 'Dibuja tu firma con el ratón y luego pulsa en el documento donde va',
   'pdf.signatureClear': 'Borrar y volver a empezar',
   'pdf.signatureUse': 'Usar esta firma',
+  'pdf.night': 'Modo noche',
   'pdf.editText': 'Editar el texto',
   'pdf.editApply': 'Aplicar',
   'pdf.editNotFound': 'Reader no encuentra ese texto en el archivo, no puede editarlo',
@@ -266,6 +267,7 @@ const es: Dict = {
   'settings.spellCheck': 'Corrector ortográfico',
   'settings.spellLanguage': 'Idioma del corrector',
   'settings.formatTables': 'Ordenar las tablas al guardar',
+  'settings.restoreSession': 'Reabrir los documentos al arrancar',
   'settings.localHistory': 'Guardar una copia en el historial al guardar',
 };
 
@@ -383,6 +385,7 @@ const en: Dict = {
   'pdf.signatureHint': 'Draw your signature with the mouse, then click where it goes',
   'pdf.signatureClear': 'Clear and start again',
   'pdf.signatureUse': 'Use this signature',
+  'pdf.night': 'Night mode',
   'pdf.editText': 'Edit the text',
   'pdf.editApply': 'Apply',
   'pdf.editNotFound': 'Reader cannot find that text in the file, so it cannot edit it',
@@ -535,6 +538,7 @@ const en: Dict = {
   'settings.spellCheck': 'Spell check',
   'settings.spellLanguage': 'Spell check language',
   'settings.formatTables': 'Tidy tables on save',
+  'settings.restoreSession': 'Reopen the documents on startup',
   'settings.localHistory': 'Keep a copy in the history on save',
 };
 

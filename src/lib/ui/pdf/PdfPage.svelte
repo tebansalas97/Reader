@@ -41,6 +41,7 @@
     onvalue?: (name: string, value: string) => void;
     edits?: TextEdit[];
     flash?: number[];
+    night?: boolean;
     picking?: boolean;
     onpick?: (piece: TextPiece) => void;
     onunedit?: (id: string) => void;
@@ -69,6 +70,7 @@
     onvalue,
     edits = [],
     flash = [],
+    night = false,
     picking = false,
     onpick,
     onunedit,
@@ -149,7 +151,7 @@
   data-page={page}
   style="width: {box.cssWidth}px; height: {box.cssHeight}px"
 >
-  <canvas bind:this={canvas} aria-label="Página {index + 1}"></canvas>
+  <canvas bind:this={canvas} class:night aria-label="Página {index + 1}"></canvas>
   {#if live && pieces.length > 0}
     <div class="text-layer" class:picking>
       {#each pieces as piece, i (i)}
@@ -229,6 +231,10 @@
     display: block;
     width: 100%;
     height: 100%;
+  }
+
+  canvas.night {
+    filter: invert(1) hue-rotate(180deg);
   }
 
   .text-layer {

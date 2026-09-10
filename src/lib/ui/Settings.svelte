@@ -146,6 +146,14 @@
           />
           <span>{t('settings.localHistory')}</span>
         </label>
+        <label class="check">
+          <input
+            type="checkbox"
+            checked={prefs.current.restoreSession}
+            onchange={(e) => prefs.update({ restoreSession: e.currentTarget.checked })}
+          />
+          <span>{t('settings.restoreSession')}</span>
+        </label>
       </section>
 
       <section>

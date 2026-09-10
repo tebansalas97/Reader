@@ -17,6 +17,8 @@
     ontool: (tool: AnnotationTool) => void;
     oncolor: (color: string) => void;
     onsignature: () => void;
+    night: boolean;
+    onnight: () => void;
   }
 
   const {
@@ -30,6 +32,8 @@
     ontool,
     oncolor,
     onsignature,
+    night,
+    onnight,
   }: Props = $props();
 
   const TOOLS: Array<{ kind: AnnotationKind; path: string }> = [
@@ -213,6 +217,21 @@
       {/each}
     </div>
   {/if}
+
+  <div class="sep"></div>
+
+  <button
+    class="tool"
+    class:on={night}
+    title={t('pdf.night')}
+    aria-label={t('pdf.night')}
+    aria-pressed={night}
+    onclick={onnight}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 106.5 6.5z" />
+    </svg>
+  </button>
 
   <div class="grow"></div>
 

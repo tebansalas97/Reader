@@ -156,6 +156,18 @@ describe('PdfPage', () => {
     expect(onfailed).toHaveBeenCalledWith(4);
   });
 
+  it('inverts the canvas in night mode', async () => {
+    const { container } = render(PdfPage, props({ night: true }));
+    await settle();
+    expect(container.querySelector('canvas.night')).not.toBeNull();
+  });
+
+  it('leaves the canvas alone when night mode is off', async () => {
+    const { container } = render(PdfPage, props());
+    await settle();
+    expect(container.querySelector('canvas.night')).toBeNull();
+  });
+
   it('keeps showing the number of a page that failed', async () => {
     const { container } = render(
       PdfPage,

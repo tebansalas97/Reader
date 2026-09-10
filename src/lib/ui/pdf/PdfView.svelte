@@ -31,7 +31,7 @@
   import type { PageEdit } from '$lib/pdf/pages';
   import { documents, type PdfDocument } from '$lib/state/documents.svelte';
   import type { StampItem } from '$lib/state/stamps.svelte';
-  import type { AnnotationTool } from '$lib/state/ui.svelte';
+  import { ui, type AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationPopover from './AnnotationPopover.svelte';
   import PdfPage from './PdfPage.svelte';
 
@@ -53,6 +53,7 @@
     onchange?: (annotation: Annotation) => void;
     ondelete?: (id: string) => void;
     hit?: { page: number; items: number[] } | null;
+    night?: boolean;
     onedit?: (edit: TextEdit) => void;
     onunedit?: (id: string) => void;
   }
@@ -75,6 +76,7 @@
     onchange,
     ondelete,
     hit = null,
+    night = false,
     onedit,
     onunedit,
   }: Props = $props();
@@ -381,6 +383,13 @@
     return () => window.removeEventListener('keydown', onKeyDown);
   });
 
+  $effect(() => {
+    ui.editingText = editing !== null;
+    return () => {
+      ui.editingText = false;
+    };
+  });
+
   function repaintable(annotation: Annotation): boolean {
     return annotation.kind !== 'stamp' || typeof annotation.image === 'string';
   }
@@ -529,6 +538,7 @@
           {stamp}
           edits={edits.filter((entry) => entry.page === (plan[index]?.source ?? index + 1))}
           flash={hit && hit.page === (plan[index]?.source ?? index + 1) ? hit.items : []}
+          {night}
           {picking}
           onpick={(piece) => {
             const element = scroller?.querySelector<HTMLElement>(
