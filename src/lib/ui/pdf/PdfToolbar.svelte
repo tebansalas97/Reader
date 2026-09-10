@@ -197,6 +197,20 @@
 
   <button
     class="tool"
+    class:on={tool === 'redact'}
+    title={t('pdf.tool.redact')}
+    aria-label={t('pdf.tool.redact')}
+    aria-pressed={tool === 'redact'}
+    onclick={() => ontool('redact')}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2.5 5.5h11v5h-11z" fill="currentColor" stroke="none" />
+      <path d="M2.5 3h11M2.5 13h11" />
+    </svg>
+  </button>
+
+  <button
+    class="tool"
     class:on={tool === 'signature'}
     title={t('pdf.tool.signature')}
     aria-label={t('pdf.tool.signature')}
@@ -209,7 +223,7 @@
     </svg>
   </button>
 
-  {#if tool !== 'none' && tool !== 'signature'}
+  {#if tool !== 'none' && tool !== 'signature' && tool !== 'redact'}
     <div class="group colors" aria-label={t('pdf.color')}>
       {#each PALETTE as swatch (swatch)}
         <button

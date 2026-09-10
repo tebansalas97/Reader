@@ -2,7 +2,7 @@ import type { AnnotationKind } from '$lib/pdf/annotations/model';
 import { prefs } from './prefs.svelte';
 
 export type ViewMode = 'editor' | 'split' | 'preview';
-export type AnnotationTool = 'none' | AnnotationKind | 'signature' | 'text';
+export type AnnotationTool = 'none' | AnnotationKind | 'signature' | 'text' | 'redact';
 export type SidebarPanel =
   | 'files'
   | 'outline'

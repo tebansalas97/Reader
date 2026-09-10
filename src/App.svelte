@@ -52,6 +52,9 @@
   import type { Annotation } from '$lib/pdf/annotations/model';
   import { bytesToDataUrl, looksLikePng, shrinkPng } from '$lib/pdf/annotations/png';
   import { exportable, fromXfdf, toXfdf } from '$lib/pdf/annotations/xfdf';
+  import { loadForWriting, saveWritten } from '$lib/pdf/annotations/write';
+  import { applyRedactions, imagesOnPage } from '$lib/pdf/edit/document';
+  import type { Rect } from '$lib/pdf/annotations/model';
   import { readAnnotations } from '$lib/pdf/annotations/read';
 
   import {
@@ -127,6 +130,7 @@
   let printing = $state(false);
   let appVersion = $state('');
   let printAsking = $state(false);
+  let redactAsking = $state<{ page: number; rect: Rect; images: number } | null>(null);
   let printRange = $state('');
   let sessionReady = $state(false);
   let pdfHit = $state<{ page: number; items: number[] } | null>(null);
@@ -497,6 +501,18 @@
     }
   }
 
+  async function askRedact(page: number, rect: Rect): Promise<void> {
+    const doc = activePdf;
+    if (!doc || doc.path === null) {
+      toasts.error(t('error.needsPath'));
+      return;
+    }
+    const images = await readBytesRaw(doc.path)
+      .then((bytes) => imagesOnPage(bytes, page))
+      .catch(() => 0);
+    redactAsking = { page, rect, images };
+  }
+
   function movePlan(plan: PdfDocument['pages']): void {
     const doc = activePdf;
     if (!doc) return;
@@ -571,6 +587,38 @@
       ui.selectedPages = [];
       ui.selection = [];
       toasts.push(t('pages.inserted', { n: pageCount - doc.pageCount, name: basename(source) }));
+    } catch (error) {
+      reportError('error.saveFailed', error);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function redactFlow(page: number, rect: Rect): Promise<void> {
+    const doc = activePdf;
+    if (!doc) return;
+    if (doc.path === null) {
+      toasts.error(t('error.needsPath'));
+      return;
+    }
+    if (documentIsDirty(doc) && (await savePdf(doc, undefined, true)) !== 'saved') return;
+
+    const path = doc.path;
+    saving = true;
+    try {
+      const bytes = await readBytesRaw(path);
+      const document = await loadForWriting(bytes);
+      const reports = await applyRedactions(document, [{ page, rect }]);
+      const written = await saveWritten(document);
+      const modifiedMs = await writeBytesRaw(path, written);
+
+      documents.resetPdfPages(doc.id, doc.pages.length, modifiedMs);
+      documents.refreshPdfSource(doc.id, convertFileSrc(path));
+      ui.selection = [];
+      ui.annotationTool = 'none';
+
+      const done = reports.reduce((total, entry) => total + entry.runs, 0);
+      toasts.push(done > 0 ? t('redact.done', { n: done }) : t('redact.none'));
     } catch (error) {
       reportError('error.saveFailed', error);
     } finally {
@@ -1219,6 +1267,7 @@
                 ui.selection = made.map((annotation) => annotation.id);
               }}
               onselect={(ids) => (ui.selection = ids)}
+              onredact={(page, rect) => void askRedact(page, rect)}
               onchange={(annotation) => documents.updateAnnotation(activePdf.id, annotation)}
               onedit={(edit) => documents.addEdit(activePdf.id, edit)}
               onunedit={(id) => documents.removeEdit(activePdf.id, id)}
@@ -1329,6 +1378,24 @@
       ui.signatureOpen = false;
       ui.annotationTool = 'signature';
       ui.selection = [];
+    }}
+  />
+{/if}
+
+{#if redactAsking}
+  <Dialog
+    title={t('redact.title')}
+    body={redactAsking.images > 0
+      ? `${t('redact.body')} ${t('redact.images', { n: redactAsking.images })}`
+      : t('redact.body')}
+    choices={[
+      { id: 'redact', label: t('redact.go'), tone: 'danger' },
+      { id: 'cancel', label: t('dialog.cancel'), tone: 'plain' },
+    ]}
+    onchoose={(id) => {
+      const asked = redactAsking;
+      redactAsking = null;
+      if (id === 'redact' && asked) void redactFlow(asked.page, asked.rect);
     }}
   />
 {/if}

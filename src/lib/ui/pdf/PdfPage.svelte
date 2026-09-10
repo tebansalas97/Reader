@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PDFPageProxy } from 'pdfjs-dist';
-  import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { Annotation, Rect as PdfRect } from '$lib/pdf/annotations/model';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
   import {
@@ -35,6 +35,7 @@
     stamp?: StampItem | null;
     oncreate?: (annotation: Annotation) => void;
     onselect?: (id: string, additive: boolean) => void;
+    onredact?: (page: number, rect: PdfRect) => void;
     onchange?: (annotation: Annotation) => void;
     fields?: FormField[];
     values?: FieldValues;
@@ -64,6 +65,7 @@
     stamp = null,
     oncreate,
     onselect,
+    onredact,
     onchange,
     fields = [],
     values = {},
@@ -208,6 +210,7 @@
       {selectedIds}
       {stamp}
       oncreate={(annotation) => oncreate?.(annotation)}
+      onredact={(rect) => onredact?.(page, rect)}
       onselect={(id, additive) => onselect?.(id, additive)}
       onchange={(annotation) => onchange?.(annotation)}
     />

@@ -46,6 +46,7 @@
     selectedIds: string[];
     stamp?: StampItem | null;
     oncreate: (annotation: Annotation) => void;
+    onredact?: (rect: Rect) => void;
     onselect: (id: string, additive: boolean) => void;
     onchange?: (annotation: Annotation) => void;
   }
@@ -62,6 +63,7 @@
     selectedIds,
     stamp = null,
     oncreate,
+    onredact,
     onselect,
     onchange,
   }: Props = $props();
@@ -95,6 +97,7 @@
       tool === 'ellipse' ||
       tool === 'note' ||
       tool === 'freetext' ||
+      tool === 'redact' ||
       tool === 'signature',
   );
   const selectedId = $derived(selectedIds.length === 1 ? selectedIds[0]! : null);
@@ -349,7 +352,11 @@
       return;
     }
 
-    if ((tool === 'rect' || tool === 'ellipse' || tool === 'freetext') && start && end) {
+    if (
+      (tool === 'rect' || tool === 'ellipse' || tool === 'freetext' || tool === 'redact') &&
+      start &&
+      end
+    ) {
       const drawn = dragRect(start, end);
       if (bigEnough(drawn)) {
         const rect = toPdfRect(
@@ -358,7 +365,8 @@
           scale,
           rotation,
         );
-        emit(createAnnotation({ kind: tool, page, color, author, rect }));
+        if (tool === 'redact') onredact?.(rect);
+        else emit(createAnnotation({ kind: tool, page, color, author, rect }));
       }
     }
     finish();
@@ -550,6 +558,18 @@
     </g>
   {/if}
 
+  {#if preview && (tool === 'redact' || tool === 'freetext')}
+    <rect
+      class="preview"
+      class:solid={tool === 'redact'}
+      x={preview.x}
+      y={preview.y}
+      width={preview.width}
+      height={preview.height}
+      stroke={tool === 'redact' ? '#000000' : color}
+    />
+  {/if}
+
   {#if preview && (tool === 'rect' || tool === 'ellipse')}
     {#if tool === 'rect'}
       <rect
@@ -615,6 +635,10 @@
 
   .hit.grab {
     cursor: move;
+  }
+
+  .preview.solid {
+    fill: rgba(0, 0, 0, 0.75);
   }
 
   text {

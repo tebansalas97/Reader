@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { Annotation, Rect as PdfRect } from '$lib/pdf/annotations/model';
   import { paintBox } from '$lib/pdf/annotations/paint';
   import { quadsFromRects, type RectLike } from '$lib/pdf/annotations/quads';
   import {
@@ -60,6 +60,7 @@
     stamp?: StampItem | null;
     oncreate?: (annotations: Annotation[]) => void;
     onselect?: (ids: string[]) => void;
+    onredact?: (page: number, rect: PdfRect) => void;
     onchange?: (annotation: Annotation) => void;
     ondelete?: (ids: string[]) => void;
     hit?: { page: number; items: number[] } | null;
@@ -84,6 +85,7 @@
     stamp = null,
     oncreate,
     onselect,
+    onredact,
     onchange,
     ondelete,
     hit = null,
@@ -625,6 +627,7 @@
           }}
           onunedit={(id) => onunedit?.(id)}
           oncreate={(annotation) => oncreate?.([annotation])}
+          onredact={(source, rect) => onredact?.(source, rect)}
           onselect={(id, additive) => onselect?.(toggleSelection(selectedIds, id, additive))}
           onchange={(annotation) => onchange?.(annotation)}
         />

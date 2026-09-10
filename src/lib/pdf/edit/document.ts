@@ -3,7 +3,9 @@ import { encodingNameOf, reverseTable, tableFor } from './encoding';
 import { codeMapOf, parseWideWidths } from './cmap';
 import { buildReplacement, simpleFont, spliceSource, wideFont, type EditableFont } from './replace';
 import { findRuns, originOf, type FontMetrics, type TextRun } from './runs';
+import { coverStream, redactRun } from './redact';
 import { tokenize, type Token } from './tokens';
+import type { Rect } from '../annotations/model';
 
 export interface TextEdit {
   id: string;
@@ -331,4 +333,81 @@ export async function applyTextEdits(
   }
 
   return reports;
+}
+
+export interface Redaction {
+  page: number;
+  rect: Rect;
+}
+
+export interface RedactionReport {
+  page: number;
+  runs: number;
+  images: number;
+}
+
+export async function applyRedactions(
+  document: PDFDocument,
+  areas: Redaction[],
+): Promise<RedactionReport[]> {
+  if (areas.length === 0) return [];
+  const lib = await import('pdf-lib');
+
+  const byPage = new Map<number, Rect[]>();
+  for (const area of areas) {
+    const list = byPage.get(area.page);
+    if (list) list.push(area.rect);
+    else byPage.set(area.page, [area.rect]);
+  }
+
+  const reports: RedactionReport[] = [];
+
+  for (const [page, rects] of byPage) {
+    const target = document.getPages()[page - 1];
+    const text = await readPageText(document, page);
+    if (!target || !text) {
+      reports.push({ page, runs: 0, images: 0 });
+      continue;
+    }
+
+    const splices: Array<{ start: number; end: number; text: string }> = [];
+    for (const run of text.runs) {
+      const font = text.fonts.get(run.font) ?? null;
+      const source = redactRun(run, font, rects);
+      if (source === null) continue;
+      splices.push({
+        start: text.tokens[run.firstToken]!.start,
+        end: text.tokens[run.lastToken]!.end,
+        text: source,
+      });
+    }
+
+    const source = splices.length > 0 ? spliceSource(text.source, splices) : text.source;
+    writeSource(lib, document, target, [source, coverStream(rects)].join(String.fromCharCode(10)));
+    reports.push({ page, runs: splices.length, images: imagesOn(lib, target) });
+  }
+
+  return reports;
+}
+
+function imagesOn(lib: PdfLib, page: PDFPage): number {
+  const resources = page.node.Resources();
+  const xobjects = resources?.lookupMaybe(lib.PDFName.of('XObject'), lib.PDFDict);
+  if (!xobjects) return 0;
+
+  let found = 0;
+  for (const [key] of xobjects.entries()) {
+    const entry = xobjects.lookup(key);
+    if (!(entry instanceof lib.PDFRawStream)) continue;
+    const subtype = entry.dict.lookupMaybe(lib.PDFName.of('Subtype'), lib.PDFName)?.asString();
+    if (subtype?.replace(/^\//, '') === 'Image') found += 1;
+  }
+  return found;
+}
+
+export async function imagesOnPage(bytes: Uint8Array, page: number): Promise<number> {
+  const lib = await import('pdf-lib');
+  const document = await lib.PDFDocument.load(bytes, { updateMetadata: false });
+  const target = document.getPages()[page - 1];
+  return target ? imagesOn(lib, target) : 0;
 }
