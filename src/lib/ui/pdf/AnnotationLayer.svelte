@@ -17,6 +17,12 @@
     simplify,
   } from '$lib/pdf/annotations/selection';
   import {
+    placedStrokes,
+    signatureRatio,
+    signatureRect,
+    SIGNATURE_WIDTH,
+  } from '$lib/pdf/annotations/signature';
+  import {
     angleBetween,
     boundsFrom,
     canResize,
@@ -40,6 +46,7 @@
     color: string;
     author: string;
     selectedId: string | null;
+    signature?: Point[][];
     oncreate: (annotation: Annotation) => void;
     onselect: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
@@ -55,6 +62,7 @@
     color,
     author,
     selectedId,
+    signature = [],
     oncreate,
     onselect,
     onchange,
@@ -82,7 +90,13 @@
   const width = $derived(Math.max(1, Math.round(box.width * scale)));
   const height = $derived(Math.max(1, Math.round(box.height * scale)));
 
-  const draws = $derived(tool === 'ink' || tool === 'rect' || tool === 'ellipse' || tool === 'note');
+  const draws = $derived(
+    tool === 'ink' ||
+      tool === 'rect' ||
+      tool === 'ellipse' ||
+      tool === 'note' ||
+      tool === 'signature',
+  );
   const shown = $derived(
     annotations.map((annotation) => (draft && draft.id === annotation.id ? draft : annotation)),
   );
@@ -231,6 +245,22 @@
           color,
           author,
           rect: { x: anchor.x, y: anchor.y - NOTE_SIZE, width: NOTE_SIZE, height: NOTE_SIZE },
+        }),
+      );
+      return;
+    }
+
+    if (tool === 'signature') {
+      if (signature.length === 0) return;
+      const anchor = toPdfPoint(point, size, scale, rotation);
+      const rect = signatureRect(anchor, SIGNATURE_WIDTH, signatureRatio(signature));
+      emit(
+        createAnnotation({
+          kind: 'ink',
+          page,
+          color,
+          author,
+          ink: placedStrokes(signature, rect),
         }),
       );
       return;

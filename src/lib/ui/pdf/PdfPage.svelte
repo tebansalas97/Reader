@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { PDFPageProxy } from 'pdfjs-dist';
-  import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { Annotation, Point } from '$lib/pdf/annotations/model';
   import type { PageSize } from '$lib/pdf/document';
   import { canvasSize, createPageRenderer, releaseCanvas } from '$lib/pdf/render';
   import {
@@ -10,8 +10,10 @@
     transformOf,
     type TextPiece,
   } from '$lib/pdf/text-layer';
+  import type { FieldValues, FormField } from '$lib/pdf/forms/model';
   import type { AnnotationTool } from '$lib/state/ui.svelte';
   import AnnotationLayer from './AnnotationLayer.svelte';
+  import FormLayer from './FormLayer.svelte';
 
   interface Props {
     index: number;
@@ -27,9 +29,13 @@
     color?: string;
     author?: string;
     selectedId?: string | null;
+    signature?: Point[][];
     oncreate?: (annotation: Annotation) => void;
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
+    fields?: FormField[];
+    values?: FieldValues;
+    onvalue?: (name: string, value: string) => void;
   }
 
   const {
@@ -46,9 +52,13 @@
     color = '#ffd400',
     author = '',
     selectedId = null,
+    signature = [],
     oncreate,
     onselect,
     onchange,
+    fields = [],
+    values = {},
+    onvalue,
   }: Props = $props();
 
   let canvas = $state<HTMLCanvasElement | null>(null);
@@ -131,6 +141,16 @@
       {/each}
     </div>
   {/if}
+  {#if live && fields.length > 0}
+    <FormLayer
+      {size}
+      {scale}
+      {rotation}
+      {fields}
+      {values}
+      onvalue={(name, value) => onvalue?.(name, value)}
+    />
+  {/if}
   {#if live}
     <AnnotationLayer
       {page}
@@ -142,6 +162,7 @@
       {color}
       {author}
       {selectedId}
+      {signature}
       oncreate={(annotation) => oncreate?.(annotation)}
       onselect={(id) => onselect?.(id)}
       onchange={(annotation) => onchange?.(annotation)}

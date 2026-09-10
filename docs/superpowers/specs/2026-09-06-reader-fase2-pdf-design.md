@@ -352,6 +352,32 @@ Guardar aplica el plan y las anotaciones en la misma pasada de pdf-lib
 Extraer páginas escribe un archivo nuevo con copias de las elegidas, con sus
 anotaciones, y no toca el original.
 
+## 8.2 Etapa E: formularios y firma
+
+pdf.js entrega los campos del formulario como anotaciones de tipo widget, con su
+nombre completo, su tipo, su valor y su caja. Reader los modela aparte de las
+anotaciones porque no son marcas sobre el documento: son datos del archivo.
+
+Los valores se guardan por **nombre de campo**, no por widget, que es lo que
+hace que un grupo de botones de radio funcione: varios widgets comparten nombre
+y cada uno aporta su valor de exportación.
+
+Los widgets se ocultan del lienzo igual que las anotaciones que Reader gestiona,
+y encima se dibujan controles de verdad (campo de texto, área de texto, casilla,
+radio y lista). Así lo que se escribe se ve al momento y no hay dos capas
+peleando.
+
+Al guardar, pdf-lib escribe los valores y regenera las apariencias con Helvetica
+incrustada, que es lo que hace que el formulario relleno se vea en cualquier
+visor y no solo en el que lo escribió. Los botones de acción no se tocan: Reader
+no ejecuta el JavaScript de un PDF, que es un vector de ataque conocido.
+
+La firma es un dibujo, no un certificado. Se dibuja una vez en un panel, se
+guarda normalizada en las preferencias, y al pulsar en el documento se coloca
+como una anotación de tinta con el ancho de una firma. Por eso se puede mover,
+estirar y girar como cualquier dibujo, viaja dentro del archivo y se imprime.
+Una firma criptográfica es otra cosa y no entra aquí.
+
 ## 9. Fase 3, para que conste
 
 Editar el texto existente. Alcance realista: seleccionar un fragmento de una

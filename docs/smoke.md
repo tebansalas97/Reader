@@ -183,3 +183,22 @@ WebView. Recorre la lista con la compilación de release instalada, no con
     con sus anotaciones.
 52. Cierra la app con la pestaña de páginas abierta y vuelve a abrirla: sigue
     en la misma pestaña.
+
+## Formularios y firma
+
+53. Abre un PDF con formulario. Los campos aparecen con su recuadro azul:
+    escribe en uno, marca una casilla, elige una opción de una lista.
+54. La barra de estado pasa a «Sin guardar» al tocar cualquier campo.
+55. Guarda y vuelve a abrir el archivo. Los valores siguen ahí. Ábrelo también
+    en Edge: se ven igual, porque van escritos en el formulario del PDF y con
+    su apariencia.
+56. Un campo de solo lectura se ve con el borde a rayas y no deja escribir.
+57. Un botón del formulario (los que ejecutan acciones) no se puede pulsar:
+    Reader no ejecuta el JavaScript de un PDF.
+58. Pulsa el botón de la firma en la barra. Dibuja tu firma y pulsa «Usar esta
+    firma»: el puntero queda armado. Pulsa en el documento donde quieras y la
+    firma aparece ahí.
+59. La firma se puede mover, estirar y girar como cualquier dibujo, y se guarda
+    dentro del PDF.
+60. Cierra la app y vuelve a abrirla: tu firma sigue guardada y el botón la
+    vuelve a ofrecer sin tener que dibujarla otra vez.

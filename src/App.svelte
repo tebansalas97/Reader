@@ -43,6 +43,7 @@
   import { loadPersonal, personalWords } from '$lib/editor/spell';
   import type { Annotation } from '$lib/pdf/annotations/model';
   import { readAnnotations } from '$lib/pdf/annotations/read';
+  import { decodeSignature, encodeSignature } from '$lib/pdf/annotations/signature';
   import {
     openPdfDocument,
     PdfOpenError,
@@ -66,6 +67,7 @@
   import Editor from '$lib/ui/Editor.svelte';
   import PdfToolbar from '$lib/ui/pdf/PdfToolbar.svelte';
   import PrintSheet from '$lib/ui/pdf/PrintSheet.svelte';
+  import SignaturePad from '$lib/ui/pdf/SignaturePad.svelte';
   import PdfView from '$lib/ui/pdf/PdfView.svelte';
   import Preview from '$lib/ui/Preview.svelte';
   import Settings from '$lib/ui/Settings.svelte';
@@ -175,9 +177,9 @@
     await setFolder(normalise(chosen));
   }
 
-  async function setFolder(folder: string): Promise<void> {
+  async function setFolder(folder: string, reveal = true): Promise<void> {
     ui.folder = folder;
-    ui.useSidebar('files');
+    if (reveal) ui.useSidebar('files');
     prefs.update({ lastFolder: folder });
     await allowAssetDir(folder).catch(() => undefined);
     entries = await listDir(folder, 2).catch(() => []);
@@ -215,6 +217,9 @@
         savedPages,
         annotations: current,
         savedAnnotations: original,
+        fields: $state.snapshot(doc.fields) as PdfDocument['fields'],
+        fieldValues: $state.snapshot(doc.fieldValues) as PdfDocument['fieldValues'],
+        savedFieldValues: $state.snapshot(doc.savedFieldValues) as PdfDocument['fieldValues'],
       });
 
       const kept = withoutLostPages(current, pages);
@@ -709,7 +714,7 @@
       ui.sidebar = prefs.current.sidebarPanel;
       loadPersonal(prefs.current.personalDictionary);
       await recent.load();
-      if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder);
+      if (prefs.current.lastFolder) await setFolder(prefs.current.lastFolder, false);
 
       const paths = await startupPaths().catch(() => []);
       for (const path of paths) await openDocument(path);
@@ -837,6 +842,7 @@
       onrotate={(rotation) => documents.setRotation(activePdf.id, rotation)}
       ontool={(tool) => ui.useTool(tool)}
       oncolor={(color) => applyColor(color)}
+      onsignature={() => (ui.signatureOpen = true)}
     />
   {:else if ui.showToolbar && !ui.zen}
     <Toolbar disabled={active === null} onaction={handleAction} />
@@ -917,9 +923,12 @@
               color={prefs.current.annotationColor}
               author={prefs.current.annotationAuthor}
               selectedId={ui.selectedAnnotation}
+              signature={decodeSignature(prefs.current.signature)}
               onfailed={(message) => toasts.error(message)}
               onscale={(value) => (pdfScale = value)}
               onannotations={(found) => documents.loadAnnotations(activePdf.id, found)}
+              onfields={(found) => documents.loadFields(activePdf.id, found)}
+              onvalue={(name, value) => documents.setFieldValue(activePdf.id, name, value)}
               oncreate={(made) => {
                 for (const annotation of made) documents.addAnnotation(activePdf.id, annotation);
                 ui.selectedAnnotation = made.length === 1 ? made[0]!.id : null;
@@ -1021,6 +1030,19 @@
       { id: 'cancel', label: t('dialog.cancel') },
     ]}
     onchoose={(choice) => void resolvePending(choice)}
+  />
+{/if}
+
+{#if ui.signatureOpen}
+  <SignaturePad
+    strokes={decodeSignature(prefs.current.signature)}
+    onclose={() => (ui.signatureOpen = false)}
+    onuse={(strokes) => {
+      prefs.update({ signature: encodeSignature(strokes) });
+      ui.signatureOpen = false;
+      ui.annotationTool = 'signature';
+      ui.selectedAnnotation = null;
+    }}
   />
 {/if}
 

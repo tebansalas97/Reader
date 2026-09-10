@@ -28,6 +28,7 @@ export interface Prefs {
   annotationAuthor: string;
   annotationColor: string;
   sidebarPanel: 'files' | 'outline' | 'search' | 'history' | 'pages' | 'marks' | null;
+  signature: string;
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -58,6 +59,7 @@ export const DEFAULT_PREFS: Prefs = {
   annotationAuthor: '',
   annotationColor: '#ffd400',
   sidebarPanel: null,
+  signature: '',
 };
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -119,6 +121,7 @@ export function mergePrefs(stored: Partial<Prefs>): Prefs {
     )
       ? (stored.sidebarPanel as Prefs['sidebarPanel'])
       : null,
+    signature: typeof stored.signature === 'string' ? stored.signature.slice(0, 20000) : '',
   };
 }
 

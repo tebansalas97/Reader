@@ -125,3 +125,31 @@ export async function makeAnnotatedPdf(annotations: FixtureAnnotation[]): Promis
   page.node.set(PDFName.of('Annots'), context.obj(refs));
   return document.save();
 }
+
+export async function makeFormPdf(): Promise<Uint8Array> {
+  const document = await PDFDocument.create();
+  const page = document.addPage([600, 800]);
+  const font = await document.embedFont(StandardFonts.Helvetica);
+  const form = document.getForm();
+
+  const nombre = form.createTextField('persona.nombre');
+  nombre.setText('');
+  nombre.addToPage(page, { x: 60, y: 700, width: 240, height: 22, font });
+
+  const notas = form.createTextField('persona.notas');
+  notas.enableMultiline();
+  notas.addToPage(page, { x: 60, y: 600, width: 240, height: 60, font });
+
+  const acepta = form.createCheckBox('persona.acepta');
+  acepta.addToPage(page, { x: 60, y: 560, width: 16, height: 16 });
+
+  const turno = form.createRadioGroup('persona.turno');
+  turno.addOptionToPage('manana', page, { x: 60, y: 520, width: 16, height: 16 });
+  turno.addOptionToPage('tarde', page, { x: 120, y: 520, width: 16, height: 16 });
+
+  const ciudad = form.createDropdown('persona.ciudad');
+  ciudad.addOptions(['Bogota', 'Medellin', 'Cali']);
+  ciudad.addToPage(page, { x: 60, y: 470, width: 160, height: 22, font });
+
+  return document.save();
+}

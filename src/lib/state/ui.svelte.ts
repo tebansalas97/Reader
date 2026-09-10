@@ -2,7 +2,7 @@ import type { AnnotationKind } from '$lib/pdf/annotations/model';
 import { prefs } from './prefs.svelte';
 
 export type ViewMode = 'editor' | 'split' | 'preview';
-export type AnnotationTool = 'none' | AnnotationKind;
+export type AnnotationTool = 'none' | AnnotationKind | 'signature';
 export type SidebarPanel =
   | 'files'
   | 'outline'
@@ -32,6 +32,7 @@ class UiStore {
   annotationTool = $state<AnnotationTool>('none');
   selectedAnnotation = $state<string | null>(null);
   selectedPages = $state<number[]>([]);
+  signatureOpen = $state(false);
 
   cycleViewMode(): void {
     const index = ORDER.indexOf(this.viewMode);

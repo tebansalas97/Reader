@@ -16,6 +16,7 @@
     onrotate: (rotation: PdfDocument['rotation']) => void;
     ontool: (tool: AnnotationTool) => void;
     oncolor: (color: string) => void;
+    onsignature: () => void;
   }
 
   const {
@@ -28,6 +29,7 @@
     onrotate,
     ontool,
     oncolor,
+    onsignature,
   }: Props = $props();
 
   const TOOLS: Array<{ kind: AnnotationKind; path: string }> = [
@@ -169,7 +171,21 @@
     {/each}
   </div>
 
-  {#if tool !== 'none'}
+  <button
+    class="tool"
+    class:on={tool === 'signature'}
+    title={t('pdf.tool.signature')}
+    aria-label={t('pdf.tool.signature')}
+    aria-pressed={tool === 'signature'}
+    onclick={onsignature}
+  >
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <path d="M2 12c2 .6 3-5 5-5s1 3 2.5 3S12 6 13 5" />
+      <path d="M2 14.5h12" />
+    </svg>
+  </button>
+
+  {#if tool !== 'none' && tool !== 'signature'}
     <div class="group colors" aria-label={t('pdf.color')}>
       {#each PALETTE as swatch (swatch)}
         <button

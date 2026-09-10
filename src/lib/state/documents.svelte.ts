@@ -7,6 +7,13 @@ import {
   sameAnnotations,
   withoutAnnotation,
 } from '$lib/pdf/annotations/model';
+import {
+  sameValues,
+  valuesOf,
+  withValue,
+  type FieldValues,
+  type FormField,
+} from '$lib/pdf/forms/model';
 import { initialPlan, planAfterSave, samePlan, type PageEdit } from '$lib/pdf/pages';
 
 export const LARGE_FILE_BYTES = 20 * 1024 * 1024;
@@ -43,6 +50,9 @@ export interface PdfDocument extends BaseDocument {
   savedAnnotations: Annotation[];
   pages: PageEdit[];
   savedPages: PageEdit[];
+  fields: FormField[];
+  fieldValues: FieldValues;
+  savedFieldValues: FieldValues;
   encrypted: boolean;
 }
 
@@ -61,6 +71,7 @@ export function isPdf(doc: Document | null): doc is PdfDocument {
 export function documentIsDirty(doc: Document): boolean {
   if (doc.kind === 'markdown') return doc.text !== doc.savedText;
   if (!samePlan(doc.pages, doc.savedPages)) return true;
+  if (!sameValues(doc.fieldValues, doc.savedFieldValues)) return true;
   return !sameAnnotations(doc.annotations, doc.savedAnnotations);
 }
 
@@ -114,6 +125,9 @@ function blankPdf(path: string, info: PdfOpenInfo): PdfDocument {
     savedAnnotations: info.annotations.map((a) => ({ ...a })),
     pages: initialPlan(info.pageCount),
     savedPages: initialPlan(info.pageCount),
+    fields: [],
+    fieldValues: {},
+    savedFieldValues: {},
     encrypted: info.encrypted,
   };
 }
@@ -253,6 +267,20 @@ class DocumentsStore {
     if (doc) doc.rotation = rotation;
   }
 
+  loadFields(id: string, fields: FormField[]): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    doc.fields = fields;
+    doc.fieldValues = valuesOf(fields);
+    doc.savedFieldValues = { ...doc.fieldValues };
+  }
+
+  setFieldValue(id: string, name: string, value: string): void {
+    const doc = this.pdfById(id);
+    if (!doc) return;
+    doc.fieldValues = withValue(doc.fieldValues, name, value);
+  }
+
   setPages(id: string, pages: PageEdit[]): void {
     const doc = this.pdfById(id);
     if (!doc) return;
@@ -291,6 +319,7 @@ class DocumentsStore {
     const doc = this.pdfById(id);
     if (!doc) return;
     doc.savedAnnotations = doc.annotations.map((a) => ({ ...a }));
+    doc.savedFieldValues = { ...doc.fieldValues };
     doc.pages = planAfterSave(doc.pages);
     doc.savedPages = doc.pages.map((entry) => ({ ...entry }));
     doc.pageCount = doc.pages.length;

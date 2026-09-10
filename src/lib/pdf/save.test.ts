@@ -1,13 +1,15 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { makePdf } from '../../test/pdf-fixtures';
+import { makeFormPdf, makePdf } from '../../test/pdf-fixtures';
 import { rectToQuad } from './annotations/geometry';
 import type { Annotation } from './annotations/model';
 import { readAnnotations } from './annotations/read';
 import { PdfWriteError } from './annotations/write';
 import { openPdfDocument, type PdfHandle } from './document';
 import { loadPdfjs } from './load';
+import { valuesOf } from './forms/model';
+import { readFields } from './forms/read';
 import { initialPlan, movePages, removePages, turnPages, type PageEdit } from './pages';
 import { buildSavedPdf, extractPages } from './save';
 import { extractPageText } from './search';
@@ -169,6 +171,45 @@ describe('buildSavedPdf', () => {
     ];
     const handle = await reopen(await save(bytes, plan, initialPlan(3)));
     expect(await order(handle)).toEqual(['DOS']);
+  });
+});
+
+describe('forms and pages together', () => {
+  it('fills a field and turns its page in the same save', async () => {
+    const bytes = await makeFormPdf();
+    const fields = await readFields(await reopen(bytes));
+    const written = await buildSavedPdf({
+      bytes,
+      pages: turnPages(initialPlan(1), [0], 1),
+      savedPages: initialPlan(1),
+      annotations: [],
+      savedAnnotations: [],
+      fields,
+      fieldValues: { ...valuesOf(fields), 'persona.nombre': 'Esteban' },
+      savedFieldValues: valuesOf(fields),
+    });
+
+    const handle = await reopen(written);
+    expect(handle.pageSizes[0]?.rotation).toBe(90);
+    const after = await readFields(handle);
+    expect(after.find((f) => f.name === 'persona.nombre')?.value).toBe('Esteban');
+  });
+
+  it('leaves the form alone when no value changed', async () => {
+    const bytes = await makeFormPdf();
+    const fields = await readFields(await reopen(bytes));
+    const written = await buildSavedPdf({
+      bytes,
+      pages: initialPlan(1),
+      savedPages: initialPlan(1),
+      annotations: [],
+      savedAnnotations: [],
+      fields,
+      fieldValues: valuesOf(fields),
+      savedFieldValues: valuesOf(fields),
+    });
+    const after = await readFields(await reopen(written));
+    expect(after).toHaveLength(fields.length);
   });
 });
 

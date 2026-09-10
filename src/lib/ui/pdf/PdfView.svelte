@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import type { Annotation } from '$lib/pdf/annotations/model';
+  import type { Annotation, Point } from '$lib/pdf/annotations/model';
   import { paintBox } from '$lib/pdf/annotations/paint';
   import { quadsFromRects, type RectLike } from '$lib/pdf/annotations/quads';
   import {
@@ -9,6 +9,8 @@
     type PageBox,
   } from '$lib/pdf/annotations/selection';
   import { readAnnotations } from '$lib/pdf/annotations/read';
+  import { fieldsOnPage, type FormField } from '$lib/pdf/forms/model';
+  import { readFields } from '$lib/pdf/forms/read';
   import { movedBy } from '$lib/pdf/annotations/transform';
   import { openPdfDocument, PdfOpenError, type PdfHandle } from '$lib/pdf/document';
   import { scaleFor } from '$lib/pdf/render';
@@ -31,12 +33,15 @@
     docId: string;
     onready?: (handle: PdfHandle) => void;
     onannotations?: (annotations: Annotation[]) => void;
+    onfields?: (fields: FormField[]) => void;
+    onvalue?: (name: string, value: string) => void;
     onfailed?: (message: string) => void;
     onscale?: (scale: number) => void;
     tool?: AnnotationTool;
     color?: string;
     author?: string;
     selectedId?: string | null;
+    signature?: Point[][];
     oncreate?: (annotations: Annotation[]) => void;
     onselect?: (id: string | null) => void;
     onchange?: (annotation: Annotation) => void;
@@ -47,12 +52,15 @@
     docId,
     onready,
     onannotations,
+    onfields,
+    onvalue,
     onfailed,
     onscale,
     tool = 'none',
     color = '#ffd400',
     author = '',
     selectedId = null,
+    signature = [],
     oncreate,
     onselect,
     onchange,
@@ -138,12 +146,17 @@
           return;
         }
         const found = await readAnnotations(opened).catch(() => []);
+        const forms = await readFields(opened).catch(() => []);
         if (cancelled) {
           await opened.destroy();
           return;
         }
-        opened.hideFromCanvas(found.map((annotation) => annotation.ref ?? ''));
+        opened.hideFromCanvas([
+          ...found.map((annotation) => annotation.ref ?? ''),
+          ...forms.map((field) => field.id),
+        ]);
         onannotations?.(found);
+        onfields?.(forms);
         handle = opened;
         loading = false;
         onready?.(opened);
@@ -347,8 +360,8 @@
     return plan.findIndex((entry) => entry.source === source);
   }
 
-  function quadTool(): boolean {
-    return tool === 'highlight' || tool === 'underline' || tool === 'strikeout';
+  function quadTool(value: AnnotationTool): value is 'highlight' | 'underline' | 'strikeout' {
+    return value === 'highlight' || value === 'underline' || value === 'strikeout';
   }
 
   function pageBoxes(): PageBox[] {
@@ -371,7 +384,7 @@
   }
 
   function onMouseUp(): void {
-    if (!quadTool() || tool === 'none') return;
+    if (!quadTool(tool)) return;
     const rects = selectionRects();
     if (rects.length === 0) return;
 
@@ -431,10 +444,14 @@
           live={index >= range.renderFirst && index <= range.renderLast}
           getPage={(n) => handle!.page(plan[n - 1]?.source ?? n)}
           annotations={byPage.get(plan[index]?.source ?? index + 1) ?? []}
+          fields={fieldsOnPage(doc?.fields ?? [], plan[index]?.source ?? index + 1)}
+          values={doc?.fieldValues ?? {}}
+          onvalue={(name, value) => onvalue?.(name, value)}
           {tool}
           {color}
           {author}
           {selectedId}
+          {signature}
           oncreate={(annotation) => oncreate?.([annotation])}
           onselect={(id) => onselect?.(id)}
           onchange={(annotation) => onchange?.(annotation)}

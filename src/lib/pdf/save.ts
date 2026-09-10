@@ -6,6 +6,8 @@ import {
   PdfWriteError,
   saveWritten,
 } from './annotations/write';
+import type { FieldValues, FormField } from './forms/model';
+import { applyFields } from './forms/write';
 import { samePlan, withoutLostPages, type PageEdit } from './pages';
 
 export interface PdfSaveInput {
@@ -14,6 +16,9 @@ export interface PdfSaveInput {
   savedPages: PageEdit[];
   annotations: Annotation[];
   savedAnnotations: Annotation[];
+  fields?: FormField[];
+  fieldValues?: FieldValues;
+  savedFieldValues?: FieldValues;
 }
 
 type PdfLib = typeof import('pdf-lib');
@@ -47,6 +52,13 @@ export async function buildSavedPdf(input: PdfSaveInput): Promise<Uint8Array> {
   const lib = await import('pdf-lib');
   const document = await loadForWriting(input.bytes);
   const sourcePages = document.getPages();
+
+  await applyFields(
+    document,
+    input.fields ?? [],
+    input.fieldValues ?? {},
+    input.savedFieldValues ?? {},
+  );
 
   const moved = !samePlan(input.pages, input.savedPages);
   if (moved) applyPlan(lib, document, sourcePages, input.pages);
