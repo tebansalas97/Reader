@@ -26,6 +26,19 @@ describe('rewriteAssets', () => {
     );
   });
 
+  it('dice en que carpetas estan las imagenes, para pedir permiso', () => {
+    const el = root('<img src="../fotos/a.png"><img src="b.png">');
+    expect(rewriteAssets(el, 'C:/proyecto/docs/nota.md')).toEqual([
+      'C:/proyecto/fotos',
+      'C:/proyecto/docs',
+    ]);
+  });
+
+  it('no pide carpetas para lo que no viene del disco', () => {
+    const el = root('<img src="https://x.com/a.png"><img src="data:image/png;base64,AA">');
+    expect(rewriteAssets(el, 'C:/docs/nota.md')).toEqual([]);
+  });
+
   it('leaves an http image untouched', () => {
     const el = root('<img src="https://x.com/a.png">');
     rewriteAssets(el, 'C:/docs/nota.md');

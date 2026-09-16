@@ -13,6 +13,7 @@
     markSelection,
   } from '$lib/preview/decorations';
   import { enhance } from '$lib/preview/lazy';
+  import { grantAssetDirs, retryBroken } from '$lib/preview/assets';
   import { annotateLinks, handlePreviewClick, rewriteAssets } from '$lib/preview/links';
   import { patchPreview } from '$lib/preview/patch';
   import { renderMarkdown } from '$lib/preview/render';
@@ -86,7 +87,10 @@
     const node = content;
     if (!node) return;
     patchPreview(node, renderMarkdown(text));
-    rewriteAssets(node, path);
+    const folders = rewriteAssets(node, path);
+    void grantAssetDirs(folders).then((fresh) => {
+      if (fresh && content) retryBroken(content);
+    });
     decorate(node, path);
     paintHighlight(node);
     anchors = buildLineMap(node);

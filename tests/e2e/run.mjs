@@ -154,6 +154,14 @@ try {
     if (roto !== '') throw new Error(`imágenes rotas: ${roto}`);
   });
 
+  await check('una imagen dentro de una tabla conserva su tamaño', async () => {
+    const ancho = await app.script(
+      'const i = document.querySelector(".markdown-body table img");' +
+        'return i ? Math.round(i.getBoundingClientRect().width) : 0;',
+    );
+    if (ancho < 60) throw new Error(`la imagen mide ${ancho} px de ancho, deberia medir 72`);
+  });
+
 } finally {
   await app?.close();
   driver.child.kill();

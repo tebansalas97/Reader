@@ -1,20 +1,24 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { openExternal } from '$lib/fs/api';
-import { isExternalUrl, isMarkdown, resolveRelative } from '$lib/fs/paths';
+import { dirname, isExternalUrl, isMarkdown, resolveRelative } from '$lib/fs/paths';
 
 function isEmbedded(src: string): boolean {
   return /^(https?:|data:|blob:|asset:)/i.test(src) || src.startsWith('http://asset.localhost');
 }
 
-export function rewriteAssets(root: HTMLElement, docPath: string | null): void {
-  if (docPath === null) return;
+export function rewriteAssets(root: HTMLElement, docPath: string | null): string[] {
+  if (docPath === null) return [];
+  const folders: string[] = [];
   for (const img of Array.from(root.querySelectorAll('img'))) {
     if (img.hasAttribute('data-resolved')) continue;
     const src = img.getAttribute('src') ?? '';
     if (src.length === 0 || isEmbedded(src)) continue;
-    img.setAttribute('src', convertFileSrc(resolveRelative(docPath, src)));
+    const target = resolveRelative(docPath, src);
+    folders.push(dirname(target));
+    img.setAttribute('src', convertFileSrc(target));
     img.setAttribute('data-resolved', '1');
   }
+  return folders;
 }
 
 export function handlePreviewClick(
