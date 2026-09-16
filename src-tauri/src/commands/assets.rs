@@ -61,7 +61,7 @@ pub async fn save_asset(doc_path: String, file_name: String, bytes: Vec<u8>) -> 
 #[tauri::command]
 pub fn allow_asset_dir(app: AppHandle, path: String) -> AppResult<()> {
     app.asset_protocol_scope()
-        .allow_directory(&path, false)
+        .allow_directory(&path, true)
         .map_err(|e| AppError::new(ErrorKind::Io, e.to_string()).with_path(&path))
 }
 

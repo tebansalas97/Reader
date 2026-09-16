@@ -9,6 +9,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const application = join(root, 'src-tauri', 'target', 'release', 'reader.exe');
 const nativeDriver = join(root, 'tools', 'msedgedriver.exe');
 const fixture = join(root, 'tests', 'fixtures', 'prueba.pdf');
+const withImages = join(root, 'tests', 'fixtures', 'imagenes', 'imagenes.md');
 
 const results = [];
 
@@ -29,6 +30,7 @@ function missing() {
     return `falta msedgedriver: ${nativeDriver} (ver docs/pruebas-e2e.md)`;
   }
   if (!existsSync(fixture)) return `falta el PDF de prueba: ${fixture} (npm run fixtures)`;
+  if (!existsSync(withImages)) return `falta el Markdown de prueba: ${withImages}`;
   return null;
 }
 
@@ -40,7 +42,7 @@ if (problem) {
 
 await seedPrefs({
   restoreSession: true,
-  session: [fixture],
+  session: [withImages, fixture],
   pdfMode: 'continuous',
   autosave: 'off',
   pdfNight: false,
@@ -60,10 +62,16 @@ try {
   app = session(id);
   await wait(2500);
 
-  await check('recupera el documento de la sesión anterior', async () => {
-    const tab = await app.waitFor('.tab .label');
-    const title = await app.text(tab);
-    if (!title.includes('prueba.pdf')) throw new Error(`la pestaña dice "${title}"`);
+  await check('recupera los documentos de la sesión anterior', async () => {
+    await app.waitFor('.tab .label');
+    const labels = await app.script(
+      'return Array.from(document.querySelectorAll(".tab .label")).map((n) => n.textContent)',
+    );
+    for (const wanted of ['prueba.pdf', 'imagenes.md']) {
+      if (!labels.some((label) => label.includes(wanted))) {
+        throw new Error(`falta ${wanted}, hay ${labels.join(', ')}`);
+      }
+    }
   });
 
   await check('dibuja la primera página', async () => {
@@ -126,6 +134,24 @@ try {
     await app.click(await app.waitFor('[aria-label="Notas"]'));
     const marks = await app.script('return document.querySelectorAll(".marks .mark, .mark").length');
     if (!(marks > 0)) throw new Error('el panel de notas está vacío');
+  });
+
+  await check('enseña las imágenes de un Markdown, esten donde esten', async () => {
+    const labels = await app.findAll('.tab .label');
+    for (const label of labels) {
+      if ((await app.text(label)).includes('imagenes.md')) {
+        await app.click(label);
+        break;
+      }
+    }
+    await app.waitFor('.markdown-body img');
+    await wait(1500);
+    const roto = await app.script(
+      'return Array.from(document.querySelectorAll(".markdown-body img"))' +
+        '.filter((img) => !img.complete || img.naturalWidth === 0)' +
+        '.map((img) => img.getAttribute("alt")).join(", ")',
+    );
+    if (roto !== '') throw new Error(`imágenes rotas: ${roto}`);
   });
 
 } finally {
